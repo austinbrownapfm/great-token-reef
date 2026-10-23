@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { request, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -83,6 +83,16 @@ describe('startServer (start mode)', () => {
   it('routes /api/health to the app', async () => {
     const res = await get('/api/health');
     expect(JSON.parse(res.body)).toEqual({ ok: true });
+  });
+
+  it('returns 500 for an unreadable file and keeps serving', async () => {
+    const file = join(root, 'web', 'dist', 'assets', 'locked.js');
+    writeFileSync(file, 'x');
+    chmodSync(file, 0o000);
+    const bad = await get('/assets/locked.js');
+    expect(bad.status).toBe(500);
+    expect((await get('/assets/a.js')).status).toBe(200);
+    chmodSync(file, 0o644);
   });
 
   it('binds to 127.0.0.1', () => {

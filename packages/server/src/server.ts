@@ -55,16 +55,37 @@ function resolveStatic(distReal: string, urlPath: string): string | null {
   return real.startsWith(distReal + sep) ? real : null;
 }
 
-function serveFile(req: IncomingMessage, res: ServerResponse, file: string): void {
-  res.writeHead(200, {
+function serveFile(req: IncomingMessage, res: ServerResponse, file: string, log: (m: string) => void): void {
+  const fail = (err: Error): void => {
+    log(`[server] static ${file}: ${err.message}`);
+    if (res.headersSent) res.destroy();
+    else res.writeHead(500, { 'content-type': 'text/plain' }).end('error reading file');
+  };
+  let size: number;
+  try {
+    size = statSync(file).size;
+  } catch (err) {
+    return fail(err as Error);
+  }
+  const headers = {
     'content-type': TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream',
-    'content-length': statSync(file).size,
+    'content-length': size,
+  };
+  if (req.method === 'HEAD') {
+    res.writeHead(200, headers).end();
+    return;
+  }
+  const stream = createReadStream(file);
+  stream.on('error', fail);
+  // Headers wait for a successful open so a vanished or unreadable file can still become a 500.
+  stream.once('open', () => {
+    res.writeHead(200, headers);
+    stream.pipe(res);
   });
-  if (req.method === 'HEAD') return void res.end();
-  createReadStream(file).pipe(res);
+  res.on('close', () => stream.destroy());
 }
 
-function staticHandler(webRoot: string) {
+function staticHandler(webRoot: string, log: (m: string) => void) {
   const dist = resolve(webRoot, 'dist');
   return (req: IncomingMessage, res: ServerResponse): void => {
     if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -84,7 +105,7 @@ function staticHandler(webRoot: string) {
       res.writeHead(404, { 'content-type': 'text/plain' }).end('not found');
       return;
     }
-    serveFile(req, res, file);
+    serveFile(req, res, file, log);
   };
 }
 
@@ -112,7 +133,7 @@ export async function startServer(opts: StartServerOptions): Promise<Server> {
       });
     server.on('close', () => void vite.close());
   } else {
-    web = staticHandler(opts.webRoot);
+    web = staticHandler(opts.webRoot, log);
   }
 
   return new Promise<Server>((resolvePromise, reject) => {

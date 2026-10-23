@@ -115,9 +115,11 @@ export const MIGRATIONS: Migration[] = [
         bot_findings INTEGER NOT NULL DEFAULT 0,
         created_at   INTEGER NOT NULL
       )`,
-      `INSERT OR IGNORE INTO settings (key, value) VALUES ('reefEpoch', CAST(unixepoch() AS TEXT))`,
-      `INSERT OR IGNORE INTO settings (key, value) VALUES ('codexRewardEpoch', CAST(unixepoch() AS TEXT))`,
-      `INSERT OR IGNORE INTO settings (key, value) VALUES ('visitorEpoch', CAST(unixepoch() AS TEXT))`,
+      // One statement so all three epochs share the same unixepoch() value.
+      `INSERT OR IGNORE INTO settings (key, value) VALUES
+        ('reefEpoch', CAST(unixepoch() AS TEXT)),
+        ('codexRewardEpoch', CAST(unixepoch() AS TEXT)),
+        ('visitorEpoch', CAST(unixepoch() AS TEXT))`,
     ],
   },
 ];

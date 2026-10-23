@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { openDb } from '../store/db.ts';
 import { runMigrations } from '../store/migrate.ts';
 import { MIGRATIONS } from '../store/migrations.ts';
@@ -32,5 +32,21 @@ describe('telemetry', () => {
     expect(bad.status).toBe(400);
     expect(count(db, 'ui')).toBe(1);
     expect(count(db, 'rest')).toBe(0);
+  });
+});
+
+describe('bus', () => {
+  it('logs a failing listener and still reaches the others', () => {
+    const bus = new Bus();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const seen: string[] = [];
+    bus.subscribe(() => {
+      throw new Error('dead');
+    });
+    bus.subscribe((m) => seen.push(m.type));
+    bus.emit('reef', 'x');
+    expect(seen).toEqual(['reef']);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('[server] bus listener failed'));
+    warn.mockRestore();
   });
 });

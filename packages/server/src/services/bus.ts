@@ -17,8 +17,9 @@ export class Bus {
     for (const listener of this.listeners) {
       try {
         listener({ type, id });
-      } catch {
+      } catch (err) {
         // A dead SSE connection must never break an emitter.
+        console.warn(`[server] bus listener failed on '${type}'${id ? ` (${id})` : ''}: ${(err as Error).message}`);
       }
     }
   }
