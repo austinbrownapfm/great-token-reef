@@ -782,9 +782,15 @@ export function puffer(uid: string, p: Palette, o: PlanOpts = {}): string {
 }
 
 /* ---------- Blacktip Reef Shark / Scalloped Hammerhead ---------- */
+// o.parts swaps whole layers (legendary sharks redraw head, body and fins); o.label names the svg.
+export type SharkPart = 'defs' | 'tail' | 'dorsal' | 'body' | 'marks' | 'gills' | 'fins' | 'head';
+export type SharkParts = Partial<Record<SharkPart, (uid: string, p: Palette) => string>>;
+
 export function shark(uid: string, p: Palette, o: PlanOpts = {}): string {
   const { back, mid, belly, fin, mark, accent = p.fin, bar = belly, edge = mark,
           iris = '#3d3a2a', pupil = '#0c0d0a' } = p;
+  const parts = (o.parts ?? {}) as SharkParts;
+  const part = (k: SharkPart, d: string) => parts[k]?.(uid, p) ?? d;
   const hammer = !!o.hammer, tips = !!o.blacktip;
   const gills = [0, 1, 2, 3, 4].map(i =>
     `<path d="M${118 + i * 7} 76 C${121 + i * 7} 84 ${121 + i * 7} 92 ${118 + i * 7} 99" fill="none" stroke="${mark}" stroke-width="2" opacity="0.8"/>`).join('');
@@ -801,19 +807,20 @@ export function shark(uid: string, p: Palette, o: PlanOpts = {}): string {
   <path d="M138 140 C142 147 146 152 149 155 C140 152 132 146 126 139 C130 141 134 141 138 140 Z" fill="${edge}"/>
   <path d="M282 56 C288 47 293 40 297 36 C297 44 295 53 292 61 C289 58 285 56 282 56 Z" fill="${edge}"/>
   <path d="M272 118 C277 122 282 125 287 127 C281 128 274 126 268 122 Z" fill="${edge}"/>` : '';
-  return `<svg viewBox="0 0 320 180" role="img" aria-label="${hammer ? 'Scalloped Hammerhead' : 'Blacktip Reef Shark'}">
-  <defs>${grad(uid, back, mid, belly)}</defs>
-  <path d="M248 86 C260 74 276 56 297 36 C296 54 291 72 281 88 L284 92 C278 104 270 112 260 114 C255 108 252 102 250 98 Z" fill="${fin}"/>
-  <path d="M252 96 C258 106 266 114 287 127 C274 128 262 122 252 112 Z" fill="${fin}"/>
-  <path d="M146 62 C151 44 157 31 163 22 C171 34 178 50 182 63 C170 58 158 58 146 62 Z" fill="${fin}"/>
-  <path d="M222 70 C226 62 231 57 235 54 C238 61 240 68 241 74 C235 70 228 69 222 70 Z" fill="${fin}"/>
-  <path d="M${hammer ? 60 : 26} 88 C${hammer ? 74 : 48} 70 92 61 140 58 C186 56 224 66 250 84 L252 98 C222 108 176 114 128 110 C84 106 ${hammer ? 60 : 46} 100 ${hammer ? 58 : 26} 92 Z" fill="url(#${uid}-b)"/>
-  <path d="M${hammer ? 62 : 34} 92 C80 87 130 88 185 92 C215 94 236 92 250 88 L252 96 C214 107 158 111 112 107 C78 104 ${hammer ? 64 : 48} 99 ${hammer ? 60 : 32} 94 Z" fill="${belly}" opacity="0.95"/>
-  ${gills}
-  <path d="M108 102 C118 118 128 138 133 154 C120 150 108 137 100 118 C102 112 105 106 108 102 Z" fill="${fin}"/>
+  const label = (o.label as string | undefined) ?? (hammer ? 'Scalloped Hammerhead' : 'Blacktip Reef Shark');
+  return `<svg viewBox="0 0 320 180" role="img" aria-label="${label}">
+  <defs>${grad(uid, back, mid, belly)}${part('defs', '')}</defs>
+  ${part('tail', `<path d="M248 86 C260 74 276 56 297 36 C296 54 291 72 281 88 L284 92 C278 104 270 112 260 114 C255 108 252 102 250 98 Z" fill="${fin}"/>
+  <path d="M252 96 C258 106 266 114 287 127 C274 128 262 122 252 112 Z" fill="${fin}"/>`)}
+  ${part('dorsal', `<path d="M146 62 C151 44 157 31 163 22 C171 34 178 50 182 63 C170 58 158 58 146 62 Z" fill="${fin}"/>
+  <path d="M222 70 C226 62 231 57 235 54 C238 61 240 68 241 74 C235 70 228 69 222 70 Z" fill="${fin}"/>`)}
+  ${part('body', `<path d="M${hammer ? 60 : 26} 88 C${hammer ? 74 : 48} 70 92 61 140 58 C186 56 224 66 250 84 L252 98 C222 108 176 114 128 110 C84 106 ${hammer ? 60 : 46} 100 ${hammer ? 58 : 26} 92 Z" fill="url(#${uid}-b)"/>
+  <path d="M${hammer ? 62 : 34} 92 C80 87 130 88 185 92 C215 94 236 92 250 88 L252 96 C214 107 158 111 112 107 C78 104 ${hammer ? 64 : 48} 99 ${hammer ? 60 : 32} 94 Z" fill="${belly}" opacity="0.95"/>`)}${part('marks', '')}
+  ${part('gills', gills)}
+  ${part('fins', `<path d="M108 102 C118 118 128 138 133 154 C120 150 108 137 100 118 C102 112 105 106 108 102 Z" fill="${fin}"/>
   <path d="M186 106 C191 114 197 121 203 125 C196 126 189 122 183 115 Z" fill="${fin}"/>
-  <path d="M228 100 C231 105 235 109 239 111 C234 112 229 110 225 106 Z" fill="${fin}" opacity="0.9"/>
-  ${capsC}${head}
+  <path d="M228 100 C231 105 235 109 239 111 C234 112 229 110 225 106 Z" fill="${fin}" opacity="0.9"/>`)}
+  ${capsC}${part('head', head)}
 </svg>`;
 }
 

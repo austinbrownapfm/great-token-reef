@@ -19,6 +19,7 @@ import {
 } from './fishCatalog.ts';
 import * as art from './fishArt.ts';
 import { LEGENDARY_DEFS, isLegendary, legendaryIndex } from './legendaries.ts';
+import { LEGENDARY_LOOKS, LEGENDARY_PLANS } from './legendaryArt.ts';
 
 export { ENTRIES, SPECIES_DEFS, resolveEntry } from './fishCatalog.ts';
 export type { Palette, Water, CatalogEntryData, FishSpeciesDef } from './fishCatalog.ts';
@@ -191,10 +192,17 @@ function shinySheen(id: string): string {
  * must be unique per rendered instance — gradient ids are global in HTML.
  */
 export function fishSvg(species: number, shiny: boolean, idPrefix: string): string {
-  const { def, palette, planOpts } = resolveEntry(species);
   const id = `nbf-${idPrefix}`;
-  const builder = PLANS[def.plan] ?? art.bass;
-  let svg = builder(id, palette as Palette, planOpts);
+  let svg: string;
+  if (isLegendary(species)) {
+    const i = legendaryIndex(species);
+    const { palette, planOpts } = LEGENDARY_LOOKS[i]!;
+    svg = LEGENDARY_PLANS[LEGENDARY_DEFS[i]!.plan](id, palette, planOpts);
+  } else {
+    const { def, palette, planOpts } = resolveEntry(species);
+    const builder = PLANS[def.plan] ?? art.bass;
+    svg = builder(id, palette as Palette, planOpts);
+  }
   if (shiny) {
     // The sheen is masked to the fish's own outline, so the artwork goes in a referenceable group.
     const open = svg.slice(0, svg.indexOf('>') + 1);
