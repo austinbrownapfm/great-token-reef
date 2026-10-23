@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { Db } from '../store/db.ts';
@@ -48,7 +48,9 @@ interface OauthCreds {
  * (expiresAt in the past) sort last but are still tried: clock skew beats
  * refusing outright.
  */
-function credentialCandidates(): OauthCreds[] {
+export type ExecFileSync = (file: string, args: string[], options?: { encoding: 'utf8'; timeout: number }) => string | Buffer;
+
+export function credentialCandidates(exec: ExecFileSync = execFileSync, home: string = homedir()): OauthCreds[] {
   const out: OauthCreds[] = [];
   const add = (raw: string | null) => {
     if (!raw) return;
@@ -60,15 +62,15 @@ function credentialCandidates(): OauthCreds[] {
     }
   };
   try {
-    add(execFileSync('security', ['find-generic-password', '-s', 'Claude Code-credentials', '-w'], {
+    add(exec('security', ['find-generic-password', '-s', 'Claude Code-credentials', '-w'], {
       encoding: 'utf8',
       timeout: 10_000, // may wait on a Keychain prompt
-    }));
+    }).toString());
   } catch {
     // not macOS, keychain locked, or item missing
   }
   try {
-    add(readFileSync(join(homedir(), '.claude', '.credentials.json'), 'utf8'));
+    add(readFileSync(join(home, '.claude', '.credentials.json'), 'utf8'));
   } catch {
     // no credentials file
   }
@@ -110,6 +112,17 @@ export function mapOauthUsage(
     plan,
     fetchedAt,
   };
+}
+
+/** Cheap onboarding probe: no `-w`, so the Keychain never prompts. */
+export function claudeLoginDetected(exec: ExecFileSync = execFileSync, home: string = homedir()): boolean {
+  if (existsSync(join(home, '.claude', '.credentials.json'))) return true;
+  try {
+    exec('security', ['find-generic-password', '-s', 'Claude Code-credentials'], { encoding: 'utf8', timeout: 10_000 });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function refreshOfficialLimits(db: Db): Promise<OfficialLimits> {
