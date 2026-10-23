@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { LEGENDARY_DEFS, LEGENDARY_ID_BASE } from '@gtr/shared';
 import type { ReefCollection } from './api';
+import { searchFish } from './reefFishPicker';
+import { maskCollection } from './tankRelease';
 import { allSpecies, legendaryRows, previewLegendary } from './legendaryRows';
 
 const l = (species: number, shiny: number, caught_at: number, project = '/p/a'): ReefCollection['legendary'][number] =>
@@ -27,5 +29,16 @@ describe('allSpecies and previewLegendary', () => {
     const p = previewLegendary();
     expect(p).toHaveLength(LEGENDARY_DEFS.length * 2);
     expect(allSpecies(col, true).map((s) => s.species)).toEqual(LEGENDARY_DEFS.map((_, i) => LEGENDARY_ID_BASE + i));
+  });
+});
+
+describe('Inventory picker rows', () => {
+  const col = { species: [], legendary: [l(1003, 1, 10)], recent: [] } as ReefCollection;
+
+  it('a caught legendary is searchable and resolves a row for an existing pick entry', () => {
+    const released = maskCollection(allSpecies(col, false), []);
+    expect(searchFish(released, 'l1003', 'legendary', new Set()).map((r) => r.species)).toEqual([1003]);
+    const rows = new Map(released.map((r) => [r.species, r]));
+    expect(rows.get(1003)).toMatchObject({ name: 'L1003', rarity: 'legendary', shiny_count: 1 });
   });
 });

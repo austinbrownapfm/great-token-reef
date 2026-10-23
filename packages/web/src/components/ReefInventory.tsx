@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { FISH_SETS } from '@gtr/shared';
 import { api, type ReefFishPicks, type ReefRewards, type ReefSpeciesRow } from '../lib/api';
+import { allSpecies } from '../lib/legendaryRows';
 import { RARITIES, RARITY_PILL } from '../lib/rarity';
 import { addFish, dropIndex, moveItem, removeFish, searchFish, startingPick } from '../lib/reefFishPicker';
 import { inventoryCounts, releasedInventory, toGoLabel } from '../lib/reefInventory';
@@ -29,6 +30,12 @@ export function ReefInventory({ held }: { held: ReadonlySet<string> }) {
   const released = useMemo(
     () => (collection.data && pending.data ? maskCollection(collection.data.species, pending.data.all) : null),
     [collection.data, pending.data],
+  );
+  // The Fish picker also lists legendaries, which the server keeps out of collection.species.
+  const pickable = useMemo(() => (collection.data ? allSpecies(collection.data, false) : null), [collection.data]);
+  const releasedPickable = useMemo(
+    () => (pickable && pending.data ? maskCollection(pickable, pending.data.all) : null),
+    [pickable, pending.data],
   );
   // A running release's set rewards wait for their tank unveil here too.
   const model = useMemo(
@@ -58,7 +65,7 @@ export function ReefInventory({ held }: { held: ReadonlySet<string> }) {
   if (rewards.isError) return <div className="text-sm text-red-500">Inventory unavailable · {rewards.error.message}</div>;
   // Without pending, released catches cannot be told from new ones; say so rather than show zero progress.
   if (pending.isError) return <div className="text-sm text-red-500">Inventory progress unavailable · {pending.error.message}</div>;
-  if (!model || !released || !collection.data) return <Loading />;
+  if (!model || !released || !pickable || !releasedPickable) return <Loading />;
   const error = toggle.error ?? backdrop.error;
   const badgeNames = model.badges.earned.map((id) => SET_LABEL.get(id) ?? id);
   const counts = inventoryCounts(model);
@@ -83,7 +90,7 @@ export function ReefInventory({ held }: { held: ReadonlySet<string> }) {
         </button>
       </div>
 
-      <FishSection released={released} all={collection.data.species} />
+      <FishSection released={releasedPickable} all={pickable} />
 
       <h3 className="mt-5 text-[11px] font-medium uppercase tracking-wide text-zinc-400">Backdrop</h3>
       <div className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
