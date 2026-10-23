@@ -2,7 +2,7 @@
 // in docs/reef-dex-roster.md, art direction in the "Reef Dex" artifact).
 //
 // 48 real species × real variant entries = 256 catalog slots. Entry index IS
-// the `species` column in nb2_cc_catches — indices are permanent. Rarity is
+// the `species` column in cc_catches — indices are permanent. Rarity is
 // explicit per entry (real color morphs ARE the rarity ladder); pigment
 // morphs recolor the species' standard palette deterministically.
 

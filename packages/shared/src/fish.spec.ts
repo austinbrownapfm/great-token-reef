@@ -100,7 +100,7 @@ describe('Reef Dex catalog', () => {
     }
   });
 
-  it('no entry name contains the word "Phase" (Gary, 2026-08-28)', () => {
+  it('no entry name contains the word "Phase"', () => {
     for (let i = 0; i < SPECIES_COUNT; i++) expect(speciesName(i)).not.toMatch(/\bPhase\b/);
   });
 

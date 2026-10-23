@@ -6,7 +6,7 @@
 // from a catch seed: the server picks species/rarity/shiny/size when a catch
 // is recorded; the web renders the SVG. The catalog has 256 entries — 48 real
 // species × real variant forms (life stages, regional phases, pigment
-// morphs); the entry index is the `species` column in nb2_cc_catches.
+// morphs); the entry index is the `species` column in cc_catches.
 // A given entry always looks the same — art derives from the catalog, never
 // the catch seed — so the collection reads like a field guide.
 
