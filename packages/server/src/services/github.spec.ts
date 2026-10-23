@@ -5,7 +5,7 @@ afterEach(() => vi.restoreAllMocks());
 
 function node(number: number, rollup: string | null, author: string | null = 'bob') {
   return {
-    repository: { name: 'reef' },
+    repository: { name: 'reef', owner: { login: 'echo' } },
     number,
     title: `PR ${number}`,
     body: 'KEY-1',
@@ -86,7 +86,7 @@ describe('fetchOpenPrs', () => {
 
 describe('fetchMergedPrs', () => {
   const merged = (repo: string, number: number, mergedAt = '2026-10-21T10:00:00Z') => ({
-    repository: { name: repo }, number, title: `PR ${number}`, url: `https://github.com/echo/${repo}/pull/${number}`, mergedAt,
+    repository: { name: repo, owner: { login: 'echo' } }, number, title: `PR ${number}`, url: `https://github.com/echo/${repo}/pull/${number}`, mergedAt,
   });
   const mergedPage = (nodes: unknown[], hasNextPage: boolean) =>
     ({ data: { search: { pageInfo: { hasNextPage, endCursor: hasNextPage ? 'm1' : null }, nodes } } });
@@ -104,8 +104,8 @@ describe('fetchMergedPrs', () => {
     expect(sent[0]!.query).toMatch(/mergedAt/);
     expect(sent[1]!.after).toBe('m1');
     expect(prs).toEqual([
-      { id: 'reef#1', repo: 'reef', number: 1, title: 'PR 1', url: 'https://github.com/echo/reef/pull/1', mergedAt: Math.floor(Date.parse('2026-10-21T10:00:00Z') / 1000) },
-      expect.objectContaining({ id: 'tank#3', repo: 'tank' }),
+      { id: 'echo/reef#1', repo: 'reef', number: 1, title: 'PR 1', url: 'https://github.com/echo/reef/pull/1', mergedAt: Math.floor(Date.parse('2026-10-21T10:00:00Z') / 1000) },
+      expect.objectContaining({ id: 'echo/tank#3', repo: 'tank' }),
     ]);
   });
 

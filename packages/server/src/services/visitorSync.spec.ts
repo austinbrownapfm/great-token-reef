@@ -11,7 +11,7 @@ import { VisitorSyncer, type GithubClient, type JiraClient } from './visitorSync
 
 function rawPr(overrides: Partial<RawPr> = {}): RawPr {
   return {
-    repo: 'reef', number: 1, title: 't', body: '', branch: 'b', url: 'https://example.com/pr/1',
+    owner: 'echo', repo: 'reef', number: 1, title: 't', body: '', branch: 'b', url: 'https://example.com/pr/1',
     isDraft: false, createdAt: 0, updatedAt: 0, headCommittedAt: 1000, checks: 'none', threads: [], reviews: [],
     ...overrides,
   };
@@ -49,6 +49,27 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('VisitorSyncer', () => {
+  it('merged PRs with the same repo name and number under different owners both emit', async () => {
+    const { syncer, db, clock } = setup({
+      merged: [mergedPr({ id: 'alice/dotfiles#1', repo: 'dotfiles', number: 1 }), mergedPr({ id: 'acme/dotfiles#1', repo: 'dotfiles', number: 1 })],
+      epoch: 1000,
+    });
+    clock.t = 2000;
+    await syncer.sync();
+    expect(events(db).map((e) => e.ref)).toEqual(['alice/dotfiles#1', 'acme/dotfiles#1']);
+  });
+
+  it('disconnecting GitHub clears open PRs and pushes a reef event', async () => {
+    const s = setup({ prs: [rawPr()] });
+    await s.syncer.sync();
+    expect(listOpenPrs(s.db)).toHaveLength(1);
+    s.github.mockReturnValue(null);
+    s.busEvents.length = 0;
+    await s.syncer.sync();
+    expect(listOpenPrs(s.db)).toEqual([]);
+    expect(s.busEvents).toContain('reef');
+  });
+
   it('a merged PR emits one pr event and a reef bus event, then advances the cursor', async () => {
     const { syncer, db, clock, gh, busEvents } = setup({ merged: [mergedPr()], epoch: 1000 });
     clock.t = 2000;

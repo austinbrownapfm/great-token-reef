@@ -135,7 +135,14 @@ export class VisitorSyncer {
       const github = this.github();
       const jira = this.jira();
       // A disconnected source expects no visitors, so an old error would otherwise stick forever.
-      if (!github) this.recordFetch('github', null, startedAt);
+      if (!github) {
+        this.recordFetch('github', null, startedAt);
+        if (listOpenPrs(this.db).length > 0) {
+          replaceOpenPrs(this.db, '', []);
+          console.log('[visitors] github disconnected, cleared open PRs');
+          this.changed = true;
+        }
+      }
       if (!jira) this.recordFetch('jira', null, startedAt);
       await Promise.all([
         github ? this.syncGithub(github, startedAt) : undefined,

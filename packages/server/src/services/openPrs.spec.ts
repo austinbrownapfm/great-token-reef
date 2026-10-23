@@ -9,7 +9,7 @@ import { ReefScanner } from './reef.ts';
 
 function raw(overrides: Partial<RawPr> = {}): RawPr {
   return {
-    repo: 'reef', number: 1, title: 't', body: '', branch: 'b', url: 'https://example.com/pr/1',
+    owner: 'echo', repo: 'reef', number: 1, title: 't', body: '', branch: 'b', url: 'https://example.com/pr/1',
     isDraft: false, createdAt: 100, updatedAt: 0, headCommittedAt: 1000, checks: 'none', threads: [], reviews: [],
     ...overrides,
   };
@@ -27,12 +27,12 @@ describe('open PRs', () => {
     const prs = [raw(), failing, raw({ number: 3, isDraft: true, createdAt: 300 })];
     expect(replaceOpenPrs(db, 'octo', prs)).toBe(3);
     const list = listOpenPrs(db);
-    expect(list.map((p) => p.id)).toEqual(['reef#2', 'reef#3', 'reef#1']);
+    expect(list.map((p) => p.id)).toEqual(['echo/reef#2', 'echo/reef#3', 'echo/reef#1']);
     const two = list.find((p) => p.number === 2)!;
     const state = computePrState(failing, 'octo');
     const fb = computeFeedback(failing, 'octo');
     expect(two).toEqual({
-      id: 'reef#2', repo: 'reef', number: 2, title: 't', url: 'https://example.com/pr/1',
+      id: 'echo/reef#2', repo: 'reef', number: 2, title: 't', url: 'https://example.com/pr/1',
       state, needsMe: computeNeedsMe(state, failing.checks, fb.newFeedback), botFindings: fb.botFindings, createdAt: 300,
     });
     expect(two.needsMe).toBe(true);
@@ -44,7 +44,13 @@ describe('open PRs', () => {
   it('orders by created_at descending then id ascending', () => {
     const db = fixtureDb();
     replaceOpenPrs(db, 'octo', [raw({ number: 2, createdAt: 5 }), raw({ number: 1, createdAt: 5 }), raw({ number: 3, createdAt: 9 })]);
-    expect(listOpenPrs(db).map((p) => p.id)).toEqual(['reef#3', 'reef#1', 'reef#2']);
+    expect(listOpenPrs(db).map((p) => p.id)).toEqual(['echo/reef#3', 'echo/reef#1', 'echo/reef#2']);
+  });
+
+  it('same repo name and number under different owners both land', () => {
+    const db = fixtureDb();
+    replaceOpenPrs(db, 'octo', [raw({ owner: 'alice', repo: 'dotfiles' }), raw({ owner: 'acme', repo: 'dotfiles' })]);
+    expect(listOpenPrs(db).map((p) => [p.id, p.repo])).toEqual([['acme/dotfiles#1', 'dotfiles'], ['alice/dotfiles#1', 'dotfiles']]);
   });
 
   it('replaces the previous set', () => {

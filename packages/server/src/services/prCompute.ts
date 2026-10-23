@@ -27,6 +27,7 @@ export interface RawReview {
   url: string | null;
 }
 export interface RawPr {
+  owner: string;
   repo: string;
   number: number;
   title: string;

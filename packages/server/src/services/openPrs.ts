@@ -14,7 +14,7 @@ export function replaceOpenPrs(db: Db, me: string, prs: RawPr[]): number {
       const state = computePrState(pr, me);
       const fb = computeFeedback(pr, me);
       const needsMe = computeNeedsMe(state, pr.checks, fb.newFeedback);
-      insert.run(`${pr.repo}#${pr.number}`, pr.repo, pr.number, pr.title, pr.url, state, needsMe ? 1 : 0, fb.botFindings, pr.createdAt);
+      insert.run(`${pr.owner}/${pr.repo}#${pr.number}`, pr.repo, pr.number, pr.title, pr.url, state, needsMe ? 1 : 0, fb.botFindings, pr.createdAt);
     }
     db.exec('COMMIT');
   } catch (err) {

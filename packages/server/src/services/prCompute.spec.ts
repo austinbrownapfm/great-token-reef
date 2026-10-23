@@ -3,7 +3,7 @@ import { computeFeedback, computeNeedsMe, computePrState, type RawPr } from './p
 
 function raw(overrides: Partial<RawPr> = {}): RawPr {
   return {
-    repo: 'repo', number: 1, title: 't', body: '', branch: 'b', url: 'https://example.com/pr/1',
+    owner: 'echo', repo: 'repo', number: 1, title: 't', body: '', branch: 'b', url: 'https://example.com/pr/1',
     isDraft: false, createdAt: 0, updatedAt: 0, headCommittedAt: 1000, checks: 'none', threads: [], reviews: [],
     ...overrides,
   };

@@ -38,7 +38,7 @@ const QUERY = `query($q: String!, $after: String) {
   search(query: $q, type: ISSUE, first: 50, after: $after) {
     pageInfo { hasNextPage endCursor }
     nodes { ... on PullRequest {
-      repository { name } number title body headRefName url isDraft createdAt updatedAt
+      repository { name owner { login } } number title body headRefName url isDraft createdAt updatedAt
       commits(last: 1) { nodes { commit { committedDate statusCheckRollup { state } } } }
       reviewThreads(first: 100) { nodes { isResolved path comments(first: 50) { nodes { author { login } createdAt url body } } } }
       reviews(first: 100) { nodes { author { login } state submittedAt body url } }
@@ -63,6 +63,7 @@ function mapChecks(state: string | null | undefined): PrChecks {
 function mapPr(n: any): RawPr {
   const commit = n.commits?.nodes?.[0]?.commit;
   return {
+    owner: n.repository.owner?.login ?? '',
     repo: n.repository.name,
     number: n.number,
     title: n.title,
@@ -148,7 +149,7 @@ export async function fetchOpenPrs(token: string, orgs: string[], fetchImpl: typ
 const MERGED_QUERY = `query($q: String!, $after: String) {
   search(query: $q, type: ISSUE, first: 50, after: $after) {
     pageInfo { hasNextPage endCursor }
-    nodes { ... on PullRequest { repository { name } number title url mergedAt } }
+    nodes { ... on PullRequest { repository { name owner { login } } number title url mergedAt } }
   }
 }`;
 
@@ -168,7 +169,7 @@ export async function fetchMergedPrs(
     const search: any = json.data.search;
     for (const n of search.nodes) {
       if (n?.number == null || !n.mergedAt) continue;
-      out.push({ id: `${n.repository.name}#${n.number}`, repo: n.repository.name, number: n.number, title: n.title, url: n.url, mergedAt: toSec(n.mergedAt) });
+      out.push({ id: `${n.repository.owner?.login ?? ''}/${n.repository.name}#${n.number}`, repo: n.repository.name, number: n.number, title: n.title, url: n.url, mergedAt: toSec(n.mergedAt) });
     }
     if (!search.pageInfo.hasNextPage) return out;
     after = search.pageInfo.endCursor;
