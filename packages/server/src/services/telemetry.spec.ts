@@ -4,6 +4,8 @@ import { runMigrations } from '../store/migrate.ts';
 import { MIGRATIONS } from '../store/migrations.ts';
 import { createApp } from '../app.ts';
 import { Bus } from './bus.ts';
+import { ReefScanner } from './reef.ts';
+import { CodexUsageScanner } from './codexUsageScanner.ts';
 import { recordUsage } from './telemetry.ts';
 
 function freshDb() {
@@ -25,7 +27,7 @@ describe('telemetry', () => {
 
   it('POST /api/events/ui records a ui event and rejects bad bodies', async () => {
     const db = freshDb();
-    const app = createApp({ db, bus: new Bus() });
+    const app = createApp({ db, bus: new Bus(), reefScanner: new ReefScanner({ db, dir: '/nonexistent' }), codexScanner: new CodexUsageScanner({ db, roots: [] }) });
     const ok = await app.request('/api/events/ui', { method: 'POST', body: JSON.stringify({ name: 'reef.view' }) });
     expect(ok.status).toBe(200);
     const bad = await app.request('/api/events/ui', { method: 'POST', body: '{}' });

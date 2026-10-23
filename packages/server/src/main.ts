@@ -5,6 +5,8 @@ import { openDb } from './store/db.ts';
 import { runMigrations } from './store/migrate.ts';
 import { MIGRATIONS } from './store/migrations.ts';
 import { Bus } from './services/bus.ts';
+import { ReefScanner } from './services/reef.ts';
+import { CodexUsageScanner } from './services/codexUsageScanner.ts';
 import { createApp } from './app.ts';
 import { startServer } from './server.ts';
 
@@ -14,7 +16,9 @@ const applied = runMigrations(db, MIGRATIONS);
 if (applied.length > 0) console.log(`[db] applied migrations: ${applied.join(', ')}`);
 
 const bus = new Bus();
-const app = createApp({ db, bus });
+const reefScanner = new ReefScanner({ db, bus, dir: config.ccProjectsDir });
+const codexScanner = new CodexUsageScanner({ db, bus, roots: [config.codexSessionsDir] });
+const app = createApp({ db, bus, reefScanner, codexScanner });
 
 await startServer({
   app,
@@ -23,6 +27,10 @@ await startServer({
   port: config.port,
   host: config.host,
 });
+
+// Scans start only once the port is bound: the first pass reads all history.
+reefScanner.start(5 * 60 * 1000);
+codexScanner.start(60_000);
 
 const url = `http://${config.host}:${config.port}`;
 console.log(`[server] The Great Token Reef → ${url}`);

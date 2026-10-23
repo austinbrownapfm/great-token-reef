@@ -8,6 +8,8 @@ import { openDb } from './store/db.ts';
 import { runMigrations } from './store/migrate.ts';
 import { MIGRATIONS } from './store/migrations.ts';
 import { Bus } from './services/bus.ts';
+import { ReefScanner } from './services/reef.ts';
+import { CodexUsageScanner } from './services/codexUsageScanner.ts';
 import { createApp } from './app.ts';
 import { startServer } from './server.ts';
 
@@ -38,7 +40,7 @@ beforeEach(async () => {
   const db = openDb(':memory:');
   runMigrations(db, MIGRATIONS);
   server = await startServer({
-    app: createApp({ db, bus: new Bus() }),
+    app: createApp({ db, bus: new Bus(), reefScanner: new ReefScanner({ db, dir: root }), codexScanner: new CodexUsageScanner({ db, roots: [] }) }),
     dev: false,
     webRoot: join(root, 'web'),
     port: 0,
@@ -106,7 +108,7 @@ describe('startServer (start mode)', () => {
     runMigrations(db, MIGRATIONS);
     await expect(
       startServer({
-        app: createApp({ db, bus: new Bus() }),
+        app: createApp({ db, bus: new Bus(), reefScanner: new ReefScanner({ db, dir: root }), codexScanner: new CodexUsageScanner({ db, roots: [] }) }),
         dev: false,
         webRoot: join(root, 'web'),
         port,
