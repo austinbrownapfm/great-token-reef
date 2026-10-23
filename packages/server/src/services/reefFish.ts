@@ -33,7 +33,7 @@ export function setReefFishPick(db: Db, view: FishView, species: number[]): numb
   if (new Set(species).size !== species.length) return { error: 'species must not repeat' };
   if (species.length > FISH_CAPS[view]) return { error: `at most ${FISH_CAPS[view]} fish for ${view}` };
   const caught = new Set(
-    (db.prepare(`SELECT DISTINCT species FROM cc_catches WHERE rarity != 'legendary' AND id <= ?`)
+    (db.prepare(`SELECT DISTINCT species FROM cc_catches WHERE id <= ?`)
       .all(getReleasedCatchId(db)) as { species: number }[]).map((r) => r.species),
   );
   const missing = species.filter((s) => !caught.has(s));

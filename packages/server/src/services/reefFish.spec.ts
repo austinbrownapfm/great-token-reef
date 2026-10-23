@@ -57,17 +57,17 @@ describe('fish picks', () => {
     expect(reefFishPicks(db).strip).toBeNull();
   });
 
-  it('rejects species with only unreleased or legendary catches', () => {
+  it('rejects unreleased species and allows released legendaries', () => {
     const db = fixtureDb();
     addCatch(db, 3);
-    addCatch(db, 4, 'legendary');
+    addCatch(db, 1000, 'legendary');
     releaseAll(db);
     addCatch(db, 7);
     expect(getReleasedCatchId(db)).toBeLessThan(
       (db.prepare('SELECT MAX(id) AS m FROM cc_catches').get() as { m: number }).m,
     );
     expect(setReefFishPick(db, 'strip', [7])).toHaveProperty('error');
-    expect(setReefFishPick(db, 'strip', [4])).toHaveProperty('error');
+    expect(setReefFishPick(db, 'strip', [1000])).toEqual([1000]);
     expect(setReefFishPick(db, 'strip', [3])).toEqual([3]);
   });
 

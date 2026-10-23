@@ -92,15 +92,15 @@ describe('checkSetCompletions', () => {
     const db = fixtureDb();
     db.prepare(
       `INSERT INTO cc_catches (seed, session_id, catch_index, caught_at, project, depth_tokens, species, name, rarity)
-       VALUES ('legend#0', 'lifetime', 0, ?, '', 1, ?, 'Legend #1', 'legendary')`,
-    ).run(NOW, loneSpecies.entries[0]!);
+       VALUES ('legend#0', 'lifetime', 0, ?, '', 1, 1000, 'Tiger Shark', 'legendary')`,
+    ).run(NOW);
     catchEntries(db, loneSpecies.entries.slice(1));
     expect(checkSetCompletions(db, NOW)).toBe(0);
   });
 });
 
 describe('catch paths', () => {
-  it('checks set completions after an ingest writes a new catch', () => {
+  it('checks set completions after a scan writes a new catch', () => {
     const db = fixtureDb();
     setReefEpoch(db, NOW - 7 * 86400);
     // Every entry already caught: whatever the new catch rolls, every set is complete.

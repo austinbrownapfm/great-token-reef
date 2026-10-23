@@ -11,8 +11,8 @@ import {
 // The stored `name` column is a write-time snapshot kept for debugging; the
 // catalog is the source of truth, so display names are DERIVED from the
 // species index at the read boundary. Renaming a morph label is then a pure
-// code change — no data migration. Legendaries keep their stored synthetic
-// name ("Legend #N": species is a PNG ordinal, not a catalog index).
+// code change — no data migration. Legendaries keep their stored name
+// (species 1000+ is a legendary id, not a catalog index).
 function deriveName<T extends { species: number; rarity: string; name: string }>(row: T): T {
   return row.rarity === 'legendary' ? row : { ...row, name: speciesName(row.species) };
 }
@@ -24,6 +24,7 @@ import {
   emitReefEvent, getReleasedEventId, moveEventMark, pendingEventCount, pendingEvents, visitorErrors, type ReefEventRow,
 } from './reefEvents.ts';
 import { checkSetCompletions } from './reefSets.ts';
+import { awardLegendaries, ladderTokens } from './legendaryAwards.ts';
 import type { Bus } from './bus.ts';
 import type { CodexLimitSnapshot, CodexSessionRow, CodexUsageRow, ReefAgentFilter } from './reefTypes.ts';
 
@@ -37,7 +38,7 @@ import type { CodexLimitSnapshot, CodexSessionRow, CodexUsageRow, ReefAgentFilte
 // collection can be rebuilt from the JSONL at any time and the same fish
 // come back.
 
-const TOK = '(input_tokens + output_tokens + cache_read_tokens + cache_w5m_tokens + cache_w1h_tokens)';
+export const TOK = '(input_tokens + output_tokens + cache_read_tokens + cache_w5m_tokens + cache_w1h_tokens)';
 const WINDOW_5H = 5 * 3600;
 
 interface UsageRow {
@@ -352,6 +353,7 @@ function awardCatches(db: Db, sessions: Set<string>): number {
     }
   }
 
+  awarded += awardLegendaries(db);
   // Runs on every batch so a failed check is retried; a failure never costs the batch its catches.
   try {
     checkSetCompletions(db, Math.floor(Date.now() / 1000));
@@ -385,7 +387,7 @@ interface ParsedTranscript {
   titles: { sessionId: string; title: string }[];
 }
 
-/** Parse Claude Code transcript JSONL lines (shared by scanner and ingest). */
+/** Parse Claude Code transcript JSONL lines (shared by the scanner). */
 function parseTranscriptLines(lines: string[]): ParsedTranscript {
   const usage: UsageRow[] = [];
   const sessions: ParsedTranscript['sessions'] = [];
@@ -734,10 +736,6 @@ export function reefSummary(db: Db, agent: ReefAgentFilter = 'claude') {
   const week = totals(now - 7 * 86400 + 1);
   const hour = totals(now - 3600 + 1);
   const lifetime = totals(0);
-  const rewardTokens = db.prepare(
-    `SELECT COALESCE(SUM(${TOK}), 0) AS tokens FROM cc_usage
-     WHERE agent = 'claude' OR ts >= ?`,
-  ).get(readCodexRewardEpoch(db)) as { tokens: number };
   const limitRow = db.prepare(
     'SELECT snapshot_json FROM codex_limits ORDER BY observed_at DESC, source LIMIT 1',
   ).get() as { snapshot_json: string } | undefined;
@@ -763,7 +761,7 @@ export function reefSummary(db: Db, agent: ReefAgentFilter = 'claude') {
     },
     claudeQuota: { window5h: claude.window5h, week: claude.week, burn: claude.burn, official: claude.official },
     rewards: {
-      tokens: rewardTokens.tokens,
+      tokens: ladderTokens(db),
       catches: claude.lifetime.catches,
       speciesDiscovered: claude.lifetime.speciesDiscovered,
       lastCatch: claude.lastCatch,
@@ -867,8 +865,8 @@ export function reefCollection(db: Db) {
      GROUP BY species ORDER BY MIN(caught_at)`,
   ).all(releasedId).map((r) => deriveName(r as unknown as CollectionSpeciesRow));
   const legendary = db.prepare(
-    `SELECT species, name, caught_at, depth_tokens, project, NULL AS agent FROM cc_catches
-     WHERE rarity = 'legendary' ORDER BY catch_index`,
+    `SELECT species, name, shiny, size, caught_at, depth_tokens, project, NULL AS agent FROM cc_catches
+     WHERE rarity = 'legendary' ORDER BY depth_tokens, shiny`,
   ).all();
   const recent = db.prepare(
     'SELECT * FROM cc_catches ORDER BY caught_at DESC, id DESC LIMIT 30',
