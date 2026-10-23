@@ -18,6 +18,7 @@ import {
   type Water,
 } from './fishCatalog.ts';
 import * as art from './fishArt.ts';
+import { LEGENDARY_DEFS, isLegendary, legendaryIndex } from './legendaries.ts';
 
 export { ENTRIES, SPECIES_DEFS, resolveEntry } from './fishCatalog.ts';
 export type { Palette, Water, CatalogEntryData, FishSpeciesDef } from './fishCatalog.ts';
@@ -67,10 +68,12 @@ export const SPECIES_COUNT = ENTRIES.length; // 256 — permanent
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 
 export function speciesName(species: number): string {
+  if (isLegendary(species)) return LEGENDARY_DEFS[legendaryIndex(species)]!.name;
   return resolveEntry(species).name;
 }
 
 export function speciesRarity(species: number): Rarity {
+  if (isLegendary(species)) return 'legendary';
   return ENTRIES[species]!.r;
 }
 
@@ -79,6 +82,13 @@ export function speciesInfo(species: number): {
   name: string; base: string; sci: string; morph: string | null;
   water: Water; rarity: Rarity; marks: string; baseSpecies: number;
 } {
+  if (isLegendary(species)) {
+    const d = LEGENDARY_DEFS[legendaryIndex(species)]!;
+    return {
+      name: d.name, base: d.name, sci: d.sci, morph: null,
+      water: 'salt', rarity: 'legendary', marks: '', baseSpecies: species,
+    };
+  }
   const { def, entry, name } = resolveEntry(species);
   return {
     name, base: def.name, sci: def.sci, morph: entry.m,
