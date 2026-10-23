@@ -51,9 +51,7 @@ const activate = (db: Db, epoch = now) => {
   db.prepare("INSERT INTO settings (key, value) VALUES ('codexRewardEpoch', ?)")
     .run(String(epoch));
 };
-const catches = (db: Db) => db.prepare("SELECT * FROM cc_catches WHERE rarity != 'legendary' ORDER BY id").all();
-const legendaryNames = (db: Db) =>
-  (db.prepare("SELECT name FROM cc_catches WHERE rarity = 'legendary' ORDER BY depth_tokens, shiny").all() as { name: string }[]).map((r) => r.name);
+const catches = (db: Db) => db.prepare("SELECT * FROM cc_catches ORDER BY id").all();
 
 describe('Codex usage on the shared Reef', () => {
   it('leaves activation unset on summary reads and persists the first enabled start', () => {
@@ -91,8 +89,7 @@ describe('Codex usage on the shared Reef', () => {
       expect(onlyCodex[field].unpricedEvents).toBe(1);
       expect(onlyClaude[field].unpricedEvents).toBe(0);
     }
-    // The legendary ladder counts every token since the reef epoch, from both agents.
-    expect(all.rewards.tokens).toBe(1_175);
+    expect(all.rewards.tokens).toBe(1_000);
     expect(reefTrend(db, 7, 'all')).toHaveLength(2);
     expect(reefTrend(db, 7)).toHaveLength(1);
     expect(reefModels(db, 7, 'codex')).toMatchObject([{ agent: 'codex', calls: 1, input: 100, output: 50, cache_read: 25, unpricedEvents: 1 }]);
@@ -164,21 +161,17 @@ describe('Codex usage on the shared Reef', () => {
     claude(db, 98_500_000, epoch - 600);
     const oldCatches = catches(db);
     const history = usage({ requestId: 'codex:history', ts: epoch - 1, input: 500_000_000, output: 0, cacheRead: 0 });
-    // The five awards are legendaries (counted in `catches`); no ordinary catch is awarded.
-    expect(storeCodexBatch(db, [history], [session()], () => {}).catches).toBe(5);
+    expect(storeCodexBatch(db, [history], [session()], () => {}).catches).toBe(0);
     expect(catches(db)).toEqual(oldCatches);
-    // Legendaries ignore the Codex activation: the ladder counts Codex tokens since the reef epoch.
-    expect(legendaryNames(db)).toEqual([
-      'Tiger Shark', 'Leatherback Sea Turtle', 'Tiger Shark', 'Giant Pacific Octopus', 'Leatherback Sea Turtle',
-    ]);
     expect(reefSessions(db, 7, 20, 'codex')).toMatchObject([{ tokens: 500_000_000, rewardTokens: 0 }]);
     const live = usage({ requestId: 'codex:live-1', ts: epoch, input: 1_000_000, output: 0, cacheRead: 0 });
     expect(storeCodexBatch(db, [live], [], () => {}).catches).toBe(0);
-    expect(reefSummary(db, 'all').rewards.tokens).toBe(599_500_000);
+    expect(reefSummary(db, 'all').rewards.tokens).toBe(99_500_000);
     expect(reefSessions(db, 7, 20, 'codex')).toMatchObject([{ tokens: 501_000_000, rewardTokens: 1_000_000 }]);
     expect(reefSessions(db, 7)).toMatchObject([{ tokens: 98_500_000, rewardTokens: 98_500_000 }]);
     expect(reefSummary(db, 'codex').lifetime.tokens).toBe(501_000_000);
-    expect(storeCodexBatch(db, [usage({ ...live, requestId: 'codex:live-2', ts: epoch + 1 })], [], () => {}).catches).toBe(1);
+    // One ordinary catch, plus Tiger Shark as the ladder crosses 100M.
+    expect(storeCodexBatch(db, [usage({ ...live, requestId: 'codex:live-2', ts: epoch + 1 })], [], () => {}).catches).toBe(2);
     expect(db.prepare("SELECT seed FROM cc_catches WHERE session_id = 'codex:session-1'").all())
       .toEqual([{ seed: 'codex:session-1#0' }]);
     expect(storeCodexBatch(db, [history], [], () => {}).catches).toBe(0);

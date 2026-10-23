@@ -555,7 +555,7 @@ function moveCatchMark(db: Db, upToId: number): { releasedId: number; n: number 
 const CODEX_EPOCH_KEY = 'codexRewardEpoch';
 
 // Reads must never activate rewards: scanner startup owns activation.
-function readCodexRewardEpoch(db: Db): number {
+export function readCodexRewardEpoch(db: Db): number {
   const raw = getSetting(db, CODEX_EPOCH_KEY);
   return raw ? Number(raw) : Number.MAX_SAFE_INTEGER;
 }

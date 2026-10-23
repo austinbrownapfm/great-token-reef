@@ -84,6 +84,20 @@ describe('legendary ladder', () => {
     expect(legendaries(db)[0]!.caught_at).toBe(Math.floor((NOW - 1800) / 300) * 300);
   });
 
+  it('ignores Codex tokens from before the Codex reward epoch', () => {
+    const db = freshDb();
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('codexRewardEpoch', ?)").run(String(NOW - 1800));
+    const batch = (id: string, ts: number) => storeCodexBatch(db, [{
+      requestId: `codex:${id}`, ts, sessionId: `codex:${id}`, project: '/p', model: 'gpt-test',
+      input: 150_000_000, output: 0, cacheRead: 0, reasoningOutput: 0, cacheWriteInput: 0, cost: null,
+    }], [], () => {});
+    batch('history', NOW - 3600);
+    expect(legendaries(db)).toHaveLength(0);
+    expect(ladderTokens(db)).toBe(0);
+    batch('live', NOW - 60);
+    expect(legendaries(db)).toMatchObject([{ name: 'Tiger Shark' }]);
+  });
+
   it('starts the ladder at ladderOffsetTokens', () => {
     const db = freshDb();
     setSetting(db, 'ladderOffsetTokens', '6900000000');

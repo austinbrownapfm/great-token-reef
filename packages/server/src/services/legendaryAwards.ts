@@ -1,6 +1,6 @@
 import { LEGENDARY_DEFS, LEGENDARY_ID_BASE, legendaryAwards } from '@gtr/shared';
 import type { Db } from '../store/db.ts';
-import { TOK, getReefEpoch } from './reef.ts';
+import { TOK, getReefEpoch, readCodexRewardEpoch } from './reef.ts';
 import { getSetting } from './settings.ts';
 
 function ladderOffset(db: Db): number {
@@ -8,10 +8,10 @@ function ladderOffset(db: Db): number {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-/** Tokens since the reef epoch (both agents) plus the user's starting offset. */
+/** Claude tokens since the reef epoch, Codex tokens since the later Codex reward epoch, plus the starting offset. */
 export function ladderTokens(db: Db): number {
-  const row = db.prepare(`SELECT COALESCE(SUM(${TOK}), 0) AS tokens FROM cc_usage WHERE ts >= ?`)
-    .get(getReefEpoch(db)) as { tokens: number };
+  const row = db.prepare(`SELECT COALESCE(SUM(${TOK}), 0) AS tokens FROM cc_usage WHERE ts >= ? AND (agent = 'claude' OR ts >= ?)`)
+    .get(getReefEpoch(db), readCodexRewardEpoch(db)) as { tokens: number };
   return row.tokens + ladderOffset(db);
 }
 
@@ -21,8 +21,8 @@ export function awardLegendaries(db: Db): number {
   const offset = ladderOffset(db);
   const buckets = db.prepare(
     `SELECT (ts / 300) * 300 AS bucket, SUM(${TOK}) AS tokens FROM cc_usage
-     WHERE ts >= ? GROUP BY bucket ORDER BY bucket`,
-  ).all(epoch) as { bucket: number; tokens: number }[];
+     WHERE ts >= ? AND (agent = 'claude' OR ts >= ?) GROUP BY bucket ORDER BY bucket`,
+  ).all(epoch, readCodexRewardEpoch(db)) as { bucket: number; tokens: number }[];
   const awards = legendaryAwards(offset + buckets.reduce((sum, b) => sum + b.tokens, 0));
   if (awards.length === 0) return 0;
 
