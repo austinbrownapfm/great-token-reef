@@ -19,6 +19,7 @@ import {
   setReefBudgets,
 } from '../services/reef.ts';
 import { FISH_CAPS, reefFishPicks, setReefFishPick } from '../services/reefFish.ts';
+import { listOpenPrs } from '../services/openPrs.ts';
 import { reefRewards, setReefBackdrop, setReefDecor } from '../services/reefSets.ts';
 
 // The Reef — Claude Code and Codex usage + fishing companion. Thin adapters only; the
@@ -65,6 +66,7 @@ export const reef = new Hono<AppEnv>()
     c.get('bus')?.emit('reef');
     return c.json(result);
   })
+  .get('/prs', (c) => c.json(listOpenPrs(c.get('db'))))
   .get('/rewards', (c) => c.json(reefRewards(c.get('db'))))
   .put('/decor/:item', async (c) => {
     const body = z

@@ -14,6 +14,7 @@ const defaultExec: KeychainExec = (file, args, options) =>
   execFileSync(file, args, { ...options, stdio: ['pipe', 'pipe', 'pipe'] });
 
 const ITEM_NOT_FOUND = 44;
+const MAX_SECRET_LINE_BYTES = 1024;
 const OPTIONS = { encoding: 'utf8', timeout: 10_000 } as const;
 
 const exitStatus = (err: unknown): number | null => {
@@ -36,8 +37,10 @@ export function keychainGet(account: KeychainAccount, exec: KeychainExec = defau
 // Secret goes on stdin of `security -i` so it never shows in a process argument list.
 export function keychainSet(account: KeychainAccount, secret: string, exec: KeychainExec = defaultExec): void {
   if (secret === '' || /[\r\n\0]/.test(secret)) throw new Error('secret must be a single non-empty line');
+  if (!/^[\x21-\x7e]+$/.test(secret)) throw new Error('secret must be printable ASCII with no spaces');
   const quoted = secret.replace(/[\\"]/g, '\\$&');
   const input = `add-generic-password -U -s ${SERVICE} -a ${account} -w "${quoted}"\n`;
+  if (Buffer.byteLength(input) > MAX_SECRET_LINE_BYTES) throw new Error('secret is too long');
   try {
     exec('security', ['-i'], { ...OPTIONS, input });
   } catch (err) {

@@ -35,7 +35,7 @@ const readable = (err: unknown, secret?: string) => {
   return secret ? message.split(secret).join('***') : message;
 };
 
-function parseOrgs(raw: string | null): string[] {
+export function parseOrgs(raw: string | null): string[] {
   if (raw === null) return [];
   try {
     const parsed: unknown = JSON.parse(raw);

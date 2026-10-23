@@ -64,4 +64,19 @@ describe('/api/connect', () => {
     expect((await send('DELETE', '/jira')).status).toBe(200);
     expect(connect.onChange).toHaveBeenCalledTimes(3);
   });
+
+  it('onChange throwing never changes a successful connect response', async () => {
+    const { send } = setup({ onChange: () => { throw new Error('sync exploded'); } });
+    const res = await send('PUT', '/github', { source: 'token', token: 'ghp_secret' });
+    expect(res.status).toBe(200);
+    expect((await res.json()).github.connected).toBe(true);
+    expect((await send('DELETE', '/github')).status).toBe(200);
+  });
+
+  it('an oversized body is a 413', async () => {
+    const { send, connect } = setup();
+    const res = await send('PUT', '/jira', { baseUrl: 'https://a.test', email: 'a@b.c', apiToken: 'x'.repeat(20 * 1024) });
+    expect(res.status).toBe(413);
+    expect(connect.onChange).not.toHaveBeenCalled();
+  });
 });

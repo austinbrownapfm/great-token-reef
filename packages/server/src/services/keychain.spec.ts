@@ -25,6 +25,17 @@ describe('keychainSet', () => {
     expect(exec).not.toHaveBeenCalled();
   });
 
+  it('rejects non-printable-ASCII secrets and over-long escaped lines', () => {
+    const exec = vi.fn<KeychainExec>(() => '');
+    expect(() => keychainSet('github-token', 'has space', exec)).toThrow('printable ASCII');
+    expect(() => keychainSet('github-token', 'tök', exec)).toThrow('printable ASCII');
+    expect(() => keychainSet('github-token', 'a\tb', exec)).toThrow();
+    expect(() => keychainSet('github-token', 'x'.repeat(1100), exec)).toThrow('too long');
+    expect(() => keychainSet('github-token', '"'.repeat(600), exec)).toThrow('too long');
+    expect(exec).not.toHaveBeenCalled();
+    expect(() => keychainSet('github-token', 'x'.repeat(500), exec)).not.toThrow();
+  });
+
   it('throws a readable error without the secret and logs it without the secret', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     expect(() => keychainSet('jira-api-token', 'sekrit', failing(51))).toThrow(/Keychain.*exit 51/);
