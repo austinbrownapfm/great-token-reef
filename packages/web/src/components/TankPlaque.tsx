@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
+import { isLegendary } from '@gtr/shared';
 import type { PlaqueLines } from '../lib/tankPlaque';
 
 // Museum placard beside a clicked fish; Tank.tsx positions it and the Dex link is the only way out of the tank.
@@ -48,15 +49,17 @@ export function TankPlaque({
         <span className={lines.setDone ? 'reef-plaque-set-done' : undefined}>
           {lines.setDone ? '★ ' : ''}{lines.set}
         </span>
-        <a
-          href={`/reef?species=${species}`}
-          onClick={(e) => {
-            e.preventDefault();
-            onDex();
-          }}
-        >
-          Open in Dex →
-        </a>
+        {!isLegendary(species) && (
+          <a
+            href={`/reef?species=${species}`}
+            onClick={(e) => {
+              e.preventDefault();
+              onDex();
+            }}
+          >
+            Open in Dex →
+          </a>
+        )}
       </div>
     </div>
   );

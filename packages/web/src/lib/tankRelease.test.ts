@@ -32,8 +32,6 @@ describe('maskCollection', () => {
     const pending = [
       light(caught(10, 1)), light(caught(11, 1)),
       light(caught(12, 2, { shiny: true, rarity: 'rare' })),
-      // Legendary ordinals share the species number space; they never touch the collection.
-      light(caught(13, 3, { rarity: 'legendary' })),
     ];
     const masked = maskCollection(species, pending);
     expect(masked.map((s) => s.species)).toEqual([2, 3]);
@@ -102,9 +100,17 @@ describe('planRelease', () => {
     expect(planRelease([c], 1, new Set(['5-0']), new Set([5]), none)).toEqual([{ kind: 'upgrade', catch: c }]);
   });
 
-  it('banners legendaries', () => {
-    const c = caught(1, 0, { rarity: 'legendary' });
-    expect(planRelease([c], 1, new Set(), new Set(), none)).toEqual([{ kind: 'banner', catch: c }]);
+  it('drops a first-ever legendary in like an epic, and banners a repeat', () => {
+    const c = caught(1, 1000, { rarity: 'legendary' });
+    expect(planRelease([c], 1, new Set(), new Set(), none)).toEqual([{ kind: 'drop', catch: c }]);
+    expect(planRelease([c], 1, new Set(), new Set([1000]), none)).toEqual([{ kind: 'banner', catch: c }]);
+    const shiny = caught(2, 1000, { rarity: 'legendary', shiny: true });
+    expect(planRelease([shiny], 1, new Set(['1000-0']), new Set([1000]), none)).toEqual([{ kind: 'upgrade', catch: shiny }]);
+  });
+
+  it('masks a pending legendary out of the collection like any species', () => {
+    const masked = maskCollection([row(1000, 1, 0, 'legendary')], [light(caught(1, 1000, { rarity: 'legendary' }))]);
+    expect(masked).toEqual([]);
   });
 
   it('banners a repeat of a known species that is not picked', () => {

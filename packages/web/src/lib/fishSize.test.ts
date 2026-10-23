@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ENTRIES, SPECIES_DEFS } from '@gtr/shared';
+import { ENTRIES, LEGENDARY_DEFS, LEGENDARY_ID_BASE, SPECIES_DEFS } from '@gtr/shared';
 import { growthFactor, tankWidth } from './fishSize';
 
 const speciesIndex = (name: string) => {
@@ -54,6 +54,24 @@ describe('tankWidth', () => {
   it('grows with the personal best', () => {
     const bass = entryOf('Largemouth Bass');
     expect(tankWidth(bass, 80, true)).toBeGreaterThan(tankWidth(bass, 20, true));
+  });
+});
+
+describe('tankWidth for legendaries', () => {
+  it('draws every legendary bigger than the biggest regular fish and at most 1.6 times it', () => {
+    for (const fullscreen of [true, false]) {
+      const biggest = Math.max(...ENTRIES.map((_, i) => tankWidth(i, 500, fullscreen)));
+      LEGENDARY_DEFS.forEach((d, i) => {
+        const w = tankWidth(LEGENDARY_ID_BASE + i, 0, fullscreen);
+        expect(w, d.name).toBeGreaterThan(biggest);
+        expect(w, d.name).toBeLessThanOrEqual(biggest * 1.6);
+      });
+    }
+  });
+
+  it('draws a longer legendary no smaller than a shorter one', () => {
+    const w = (name: string) => tankWidth(LEGENDARY_ID_BASE + LEGENDARY_DEFS.findIndex((d) => d.name === name), 0, true);
+    expect(w('Giant Squid')).toBeGreaterThan(w('Leatherback Sea Turtle'));
   });
 });
 

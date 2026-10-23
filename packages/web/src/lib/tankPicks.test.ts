@@ -37,6 +37,17 @@ describe('rosterFromPick', () => {
   });
 });
 
+describe('legendaries in picks', () => {
+  const rows = [row(1), row(1003, 'legendary'), row(2, 'epic')];
+
+  it('a caught legendary is pickable for both views and counts toward the cap', () => {
+    for (const view of ['full', 'strip'] as const) {
+      expect(ids(rosterFromPick(rows, [1003, 1], [], FISH_CAPS[view]))).toEqual([1003, 1]);
+      expect(ids(rosterFromPick(rows, [1003, 1, 2], [], 2))).toEqual([1003, 1]);
+    }
+  });
+});
+
 describe('seedPick', () => {
   it('is today\'s automatic roster, as species', () => {
     const rows = [row(1, 'common', 3000), row(2, 'rare'), row(3, 'epic'), row(4, 'common', 4000)];
@@ -50,8 +61,8 @@ describe('seedPick', () => {
     expect(seedPick(rows, 13, FISH_CAPS.strip)).toEqual(ids(pickRoster(rows, 13)).slice(0, 10));
   });
 
-  it('never seeds a legendary', () => {
-    expect(seedPick([row(1, 'legendary'), row(2)], 6, 10)).toEqual([2]);
+  it('seeds a caught legendary, ahead of everything else', () => {
+    expect(seedPick([row(1, 'legendary'), row(2)], 6, 10)).toEqual([1, 2]);
   });
 });
 
@@ -64,8 +75,8 @@ describe('overflowGuests', () => {
     expect(overflowGuests(all, new Set([1]), new Set([6]), [8])).toEqual([8, 7]);
   });
 
-  it('never adds legendaries', () => {
-    expect(overflowGuests([held(1, 3, 'legendary')], new Set(), new Set(), [])).toEqual([]);
+  it('adds a first-ever legendary like any other species', () => {
+    expect(overflowGuests([held(1, 1003, 'legendary')], new Set(), new Set(), [])).toEqual([1003]);
   });
 
   it('returns the same guests when nothing is new', () => {

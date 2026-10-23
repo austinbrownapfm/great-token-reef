@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SPECIES_DEFS } from '@gtr/shared';
-import { depthFor, habitFor, type Anchors, type Habit } from './tankHabits';
+import { ENTRIES, LEGENDARY_DEFS, LEGENDARY_ID_BASE, SPECIES_DEFS } from '@gtr/shared';
+import { depthFor, habitFor, habitForSpecies, type Anchors, type Habit } from './tankHabits';
 import { rocksFor } from '../components/TankRocks';
 import { weedSway } from './tankHabitSteer';
 import { hold, mouthOf, spawn, step, type Bounds, type Swimmer, type SwimmerSpec, type World } from './tankSim';
@@ -82,6 +82,20 @@ describe('habitFor', () => {
 
   it('falls back to default for an unknown plan', () => {
     expect(habitFor({ plan: 'narwhal' })).toBe('default');
+  });
+});
+
+describe('habitForSpecies', () => {
+  it('gives every legendary a defined habit: turtle and sunfish glide, octopus crawls, the rest swim like sharks', () => {
+    LEGENDARY_DEFS.forEach((d, i) => {
+      const expected = d.plan === 'turtle' || d.plan === 'sunfish' ? 'glide' : d.plan === 'octopus' ? 'bottom' : 'pelagic';
+      expect(habitForSpecies(LEGENDARY_ID_BASE + i), d.name).toBe(expected);
+    });
+  });
+
+  it('matches habitFor for a catalog entry and defaults for an unknown id', () => {
+    expect(habitForSpecies(0)).toBe(habitFor(SPECIES_DEFS[ENTRIES[0]!.s]!));
+    expect(habitForSpecies(999)).toBe('default');
   });
 });
 

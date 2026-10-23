@@ -1,4 +1,4 @@
-import type { FishSpeciesDef } from '@gtr/shared';
+import { ENTRIES, LEGENDARY_DEFS, SPECIES_DEFS, isLegendary, legendaryIndex, type FishSpeciesDef, type LegendaryPlan } from '@gtr/shared';
 
 // Species habits by body plan (reef-living-tank spec §2); the steering lives in tankSim.ts.
 
@@ -46,6 +46,16 @@ const BY_PLAN: Record<string, Habit> = {
 export function habitFor(def: Pick<FishSpeciesDef, 'plan' | 'planOpts'>): Habit {
   if (def.planOpts?.grouper) return 'lurk';
   return BY_PLAN[def.plan] ?? 'default';
+}
+
+const LEGENDARY_HABIT: Partial<Record<LegendaryPlan, Habit>> = { turtle: 'glide', sunfish: 'glide', octopus: 'bottom' };
+
+/** A catalog entry's or legendary's habit; 'default' for an id that is neither. */
+export function habitForSpecies(species: number): Habit {
+  if (isLegendary(species)) return LEGENDARY_HABIT[LEGENDARY_DEFS[legendaryIndex(species)]!.plan] ?? 'pelagic';
+  const e = ENTRIES[species];
+  const def = e ? SPECIES_DEFS[e.s] : undefined;
+  return def ? habitFor(def) : 'default';
 }
 
 const BANDS: Partial<Record<Habit, [number, number]>> = {

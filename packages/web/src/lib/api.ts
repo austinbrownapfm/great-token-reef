@@ -175,7 +175,7 @@ export interface ReefSpeciesRow {
 }
 export interface ReefCollection {
   species: ReefSpeciesRow[];
-  legendary: { species: number; name: string; caught_at: number; depth_tokens: number; project: string }[];
+  legendary: { species: number; name: string; shiny: number; size: number; caught_at: number; depth_tokens: number; project: string }[];
   recent: ReefCatch[];
 }
 export interface ReefCatchesByDate {

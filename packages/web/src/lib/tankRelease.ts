@@ -36,8 +36,6 @@ export function maskCollection(
 ): ReefSpeciesRow[] {
   const held = new Map<number, { count: number; shiny: number }>();
   for (const p of pending) {
-    // Legendary ordinals share the species number space but are not in the collection.
-    if (p.rarity === 'legendary') continue;
     const h = held.get(p.species) ?? { count: 0, shiny: 0 };
     h.count++;
     if (p.shiny) h.shiny++;
@@ -80,7 +78,7 @@ export function planRelease(
     const key = fishKey(c.species, !!c.shiny);
     const plain = fishKey(c.species, false);
     let step: Extract<ReleaseStep, { catch: ReefCatch }>;
-    if (c.rarity === 'legendary' || live.has(key)) {
+    if (live.has(key)) {
       step = { kind: 'banner', catch: c };
     } else if (c.shiny && live.has(plain)) {
       step = { kind: 'upgrade', catch: c };
@@ -92,8 +90,8 @@ export function planRelease(
       step = { kind: 'drop', catch: c };
       live.add(key);
     }
+    seen.add(c.species);
     if (c.rarity !== 'legendary') {
-      seen.add(c.species);
       const from = best.get(c.species) ?? prevBest.get(fishKey(c.species, true)) ?? prevBest.get(plain);
       if (from !== undefined && c.size > from) step.pb = { from, to: c.size };
       best.set(c.species, Math.max(from ?? c.size, c.size));

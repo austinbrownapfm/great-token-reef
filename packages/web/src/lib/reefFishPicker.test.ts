@@ -19,9 +19,9 @@ describe('searchFish', () => {
     expect(ids(searchFish(rows, '  gar ', null, new Set()))).toEqual([1, 4]);
   });
 
-  it('an empty query lists every pickable fish; legendaries never appear', () => {
-    expect(ids(searchFish(rows, '', null, new Set()))).toEqual([1, 2, 4, 3]);
-    expect(ids(searchFish(rows, 'kraken', null, new Set()))).toEqual([]);
+  it('an empty query lists every pickable fish, legendaries included', () => {
+    expect(ids(searchFish(rows, '', null, new Set()))).toEqual([1, 2, 4, 5, 3]);
+    expect(ids(searchFish(rows, 'kraken', null, new Set()))).toEqual([5]);
   });
 
   it('filters by rarity', () => {
@@ -30,7 +30,7 @@ describe('searchFish', () => {
   });
 
   it('leaves out fish already in the list', () => {
-    expect(ids(searchFish(rows, '', null, new Set([1, 3])))).toEqual([2, 4]);
+    expect(ids(searchFish(rows, '', null, new Set([1, 3])))).toEqual([2, 4, 5]);
   });
 });
 

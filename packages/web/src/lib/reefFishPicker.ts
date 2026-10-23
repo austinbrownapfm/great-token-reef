@@ -10,7 +10,7 @@ export const FISH_SEED_POPULATION: Record<FishView, number> = { strip: 8, full: 
 export function searchFish(rows: ReefSpeciesRow[], query: string, rarity: string | null, exclude: Set<number>): ReefSpeciesRow[] {
   const q = query.trim().toLowerCase();
   return rows
-    .filter((r) => r.rarity !== 'legendary' && !exclude.has(r.species))
+    .filter((r) => !exclude.has(r.species))
     .filter((r) => (rarity === null || r.rarity === rarity) && r.name.toLowerCase().includes(q))
     .sort((a, b) => a.name.localeCompare(b.name) || a.species - b.species);
 }

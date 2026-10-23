@@ -22,7 +22,7 @@ const reefRoute = createRoute({
   path: '/',
   component: ReefView,
   // Collection is the default tab and stays out of the URL.
-  validateSearch: (input: Record<string, unknown>): { tab?: 'inventory' | 'models' | 'projects' | 'sessions'; agent?: 'all' | 'claude' | 'codex'; species?: number; reefTime?: number; reefStorm?: StormLevel; reefDecor?: string; reefBackdrop?: string; reefVisitors?: 'demo'; release?: 1; arrange?: 1 } => ({
+  validateSearch: (input: Record<string, unknown>): { tab?: 'inventory' | 'models' | 'projects' | 'sessions'; agent?: 'all' | 'claude' | 'codex'; species?: number; reefTime?: number; reefStorm?: StormLevel; reefDecor?: string; reefBackdrop?: string; reefVisitors?: 'demo'; reefLegends?: 'preview'; release?: 1; arrange?: 1 } => ({
     species: Number.isInteger(Number(input.species)) && input.species !== undefined ? Number(input.species) : undefined,
     // Dev-only: pins the tank's hour so night can be checked at 2pm.
     reefTime:
@@ -35,6 +35,8 @@ const reefRoute = createRoute({
     reefBackdrop: parseDevBackdrop(input.reefBackdrop),
     // Dev-only: one chest, batch chest, bottle and whale with made-up payloads (no server).
     reefVisitors: input.reefVisitors === 'demo' ? 'demo' : undefined,
+    // Dev-only: all 24 legendaries as caught in the collection strip, and one of each in the tank.
+    reefLegends: input.reefLegends === 'preview' ? 'preview' : undefined,
     agent: ['all', 'claude', 'codex'].includes(input.agent as string)
       ? (input.agent as 'all' | 'claude' | 'codex')
       : undefined,

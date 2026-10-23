@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { ENTRIES, SPECIES_DEFS } from '@gtr/shared';
+import { ENTRIES, SPECIES_DEFS, LEGENDARY_ID_BASE, LEGENDARY_DEFS } from '@gtr/shared';
 import { api, type ReefPending } from '../lib/api';
 import { formatDate } from '../lib/format';
+import { allSpecies } from '../lib/legendaryRows';
 import { decorAnchor, devDecor, placeDecor, speciesSetOf, visibleRewards, type DecorPlacement } from '../lib/tankDecor';
 import { bigness, tankWidth } from '../lib/fishSize';
-import { depthFor, habitFor, speedFor, type Anchors } from '../lib/tankHabits';
+import { depthFor, habitForSpecies, speedFor, type Anchors } from '../lib/tankHabits';
 import { bubbleCount, snapBubbleRate } from '../lib/tankEnv';
 import { hudReserve, isPlaqueEscape, placePlaque, plaqueFor, shouldClosePlaque } from '../lib/tankPlaque';
 import {
@@ -47,7 +48,7 @@ export function Tank({ onHeldRewards }: {
   const rewards = useQuery({ queryKey: ['reef', 'rewards'], queryFn: api.reef.rewards, retry: false });
   const fish = useQuery({ queryKey: ['reef', 'fish'], queryFn: api.reef.fish, retry: false });
   const queryClient = useQueryClient();
-  const { reefDecor, reefBackdrop, arrange } = useSearch({ strict: false }) as { reefDecor?: string; reefBackdrop?: string; arrange?: 1 };
+  const { reefDecor, reefBackdrop, arrange, reefLegends } = useSearch({ strict: false }) as { reefDecor?: string; reefBackdrop?: string; arrange?: 1; reefLegends?: 'preview' };
   const navigate = useNavigate({ from: '/' });
   const tankRef = useRef<HTMLDivElement>(null);
   const bubbleLayer = useRef<HTMLDivElement>(null);
@@ -70,17 +71,21 @@ export function Tank({ onHeldRewards }: {
   const picksFailed = fish.isError || (!!seedFailed[view] && fish.data?.[view] == null);
   // The automatic roster stands in only with no pick to show; cached picks outlive a failed refetch.
   const autoRoster = picksFailed && pick === null;
+  // Catalog species plus legendaries; ?reefLegends=preview swaps in all 24 legendaries and swims one of each.
+  const species = useMemo(() => (collection.data ? allSpecies(collection.data, reefLegends === 'preview') : []), [collection.data, reefLegends]);
+  const previewGuests = useMemo(() => (reefLegends === 'preview' ? LEGENDARY_DEFS.map((_, i) => LEGENDARY_ID_BASE + i) : []), [reefLegends]);
   const rosterFor = useCallback(
     (hidden: ReefPending['all'], bests: Map<number, number>, guests: number[]) => {
-      const masked = maskCollection(collection.data?.species ?? [], hidden, bests);
-      if (autoRoster) return rosterFromPick(masked, pickRoster(masked, population).map((r) => r.species), guests, population);
-      return pick ? rosterFromPick(masked, pick, guests, FISH_CAPS[view]) : [];
+      const masked = maskCollection(species, hidden, bests);
+      const all = [...guests, ...previewGuests];
+      if (autoRoster) return rosterFromPick(masked, pickRoster(masked, population).map((r) => r.species), all, population);
+      return pick ? rosterFromPick(masked, pick, all, FISH_CAPS[view]) : [];
     },
-    [collection.data, population, autoRoster, pick, view],
+    [species, previewGuests, population, autoRoster, pick, view],
   );
   const knownFor = useCallback(
-    (hidden: ReefPending['all']) => new Set(maskCollection(collection.data?.species ?? [], hidden).map((s) => s.species)),
-    [collection.data],
+    (hidden: ReefPending['all']) => new Set(maskCollection(species, hidden).map((s) => s.species)),
+    [species],
   );
   const specsRef = useRef<SwimmerSpec[]>([]);
   // Until pending loads, or while it has failed, released fish cannot be told from new ones; an empty tank beats a spoiler.
@@ -287,8 +292,8 @@ export function Tank({ onHeldRewards }: {
     '--reef-sun-x': env.phase === 'dusk' ? '82%' : '18%',
   } as React.CSSProperties;
   const masked = useMemo(
-    () => releasedRows(collection.data?.species ?? [], release.hidden, release.bests, queueHeld),
-    [queueHeld, collection.data, release.hidden, release.bests],
+    () => releasedRows(species, release.hidden, release.bests, queueHeld),
+    [queueHeld, species, release.hidden, release.bests],
   );
   const silhouettes = useMemo(() => pickRoster(masked, 40).slice(-5), [masked]);
   // First render of a view with no pick saves what the automatic roster shows there, once per view.
@@ -305,19 +310,20 @@ export function Tank({ onHeldRewards }: {
       queueError: pending.isError,
       releasing: release.releasing,
     });
-    if (!ready) return;
+    // The preview's made-up legendaries must never be saved into a real pick.
+    if (!ready || reefLegends) return;
     seeded.current.add(view);
-    const species = seedPick(masked, populationFor(bounds), FISH_CAPS[view]);
-    setSeeds((cur) => ({ ...cur, [view]: species }));
-    console.log(`[reef] seeding the ${view} fish pick with ${species.length} fish: ${species.join(',')}`);
-    api.reef.setFish(view, species).then(
+    const seedIds = seedPick(masked, populationFor(bounds), FISH_CAPS[view]);
+    setSeeds((cur) => ({ ...cur, [view]: seedIds }));
+    console.log(`[reef] seeding the ${view} fish pick with ${seedIds.length} fish: ${seedIds.join(',')}`);
+    api.reef.setFish(view, seedIds).then(
       (fresh) => queryClient.setQueryData(['reef', 'fish'], fresh),
       (err: unknown) => {
         console.error(`[reef] could not save the seeded ${view} fish pick; the seeded fish stay shown under the picks chip`, err);
         setSeedFailed((cur) => ({ ...cur, [view]: true }));
       },
     );
-  }, [fish.data, fish.isError, fish.isFetchedAfterMount, fish.isFetching, view, dataReady, pending.isError, release.releasing, bounds, masked, queryClient]);
+  }, [fish.data, fish.isError, fish.isFetchedAfterMount, fish.isFetching, view, dataReady, pending.isError, release.releasing, bounds, masked, queryClient, reefLegends]);
   // Visible failures: the release queue, collection or picks that did not load or save, and visitor fetches failing on the server.
   const nowSec = useMinuteClock(!queueHeld && (pending.data?.visitorErrors?.length ?? 0) > 0);
   const notices = tankNotices({
@@ -617,12 +623,10 @@ export function populationFor(b: Bounds): number {
 // Size, depth and speed from real relative size, then the species habit overrides band and speed.
 function specFor(r: RosterFish, fullscreen: boolean, scale: number): SwimmerSpec {
   const width = tankWidth(r.species, r.bestSize, fullscreen);
-  const big = bigness(width, fullscreen);
+  const big = Math.min(1, bigness(width, fullscreen));
   const centre = 0.12 + big * 0.55 + (((r.species * 13) % 7) / 7) * 0.2;
-  const tier = RARITY_RANK[r.rarity] ?? 3;
-  const entry = ENTRIES[r.species];
-  const def = entry ? SPECIES_DEFS[entry.s] : undefined;
-  const habit = def ? habitFor(def) : 'default';
+  const tier = Math.max(0, RARITY_RANK[r.rarity] ?? 3);
+  const habit = habitForSpecies(r.species);
   return {
     id: rosterId(r),
     width,

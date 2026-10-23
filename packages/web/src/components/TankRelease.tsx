@@ -4,7 +4,7 @@ import { BACKDROP_META, DECOR_META, setRewardOf } from '../lib/tankDecor';
 import { bannerGlow, queueLabel, type ReleaseStep } from '../lib/tankRelease';
 import { chestWidth } from '../lib/tankVisitors';
 import { BackdropThumb, DecorSvg } from './TankDecor';
-import { Fish, LegendFish } from './Fish';
+import { Fish } from './Fish';
 import { PILL_H, PILL_TOP_OFFSET } from './TankLines';
 import { TankVisitors } from './TankVisitors';
 import type { ReleaseBanner, ReleaseSplash, useTankRelease } from './useTankRelease';
@@ -214,7 +214,6 @@ function Banner({ banner: { step }, fullscreen }: { banner: ReleaseBanner; fulls
     );
   }
   const c = step.catch;
-  const legendary = c.rarity === 'legendary';
   const glow = bannerGlow(c);
   const muted = 'font-normal text-white/80';
   const parts = [
@@ -225,15 +224,11 @@ function Banner({ banner: { step }, fullscreen }: { banner: ReleaseBanner; fulls
   ].filter((p) => p !== null);
   return (
     <div className={`reef-banner flex max-w-full items-center gap-3 rounded-2xl bg-black/55 py-2 pl-3 pr-4 text-white shadow-xl ring-1 backdrop-blur-md ${glow}`}>
-      {legendary ? (
-        <LegendFish index={c.species} name={c.name} className={`${fullscreen ? 'h-14 w-14' : 'h-11 w-11'} flex-none object-contain`} />
-      ) : (
-        <Fish
-          species={c.species}
-          shiny={!!c.shiny}
-          className={`${fullscreen ? 'h-10 w-[4.5rem]' : 'h-8 w-14'} flex-none [&>svg]:h-full [&>svg]:w-full ${c.shiny ? 'reef-shiny' : ''}`}
-        />
-      )}
+      <Fish
+        species={c.species}
+        shiny={!!c.shiny}
+        className={`${fullscreen ? 'h-10 w-[4.5rem]' : 'h-8 w-14'} flex-none [&>svg]:h-full [&>svg]:w-full ${c.shiny ? 'reef-shiny' : ''}`}
+      />
       <div className="min-w-0">
         <div className={`truncate font-semibold ${fullscreen ? 'text-base' : 'text-sm'}`}>
           {c.shiny ? '✨ ' : ''}{c.name}

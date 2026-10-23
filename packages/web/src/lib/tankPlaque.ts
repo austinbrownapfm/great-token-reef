@@ -1,4 +1,4 @@
-import { ENTRIES, SPECIES_DEFS, setProgress, setsContaining } from '@gtr/shared';
+import { ENTRIES, LEGENDARY_DEFS, SPECIES_DEFS, isLegendary, legendaryIndex, setProgress, setsContaining } from '@gtr/shared';
 import type { ReefSpeciesRow } from './api';
 import { formatDate } from './format';
 import type { Bounds } from './tankMotion';
@@ -20,7 +20,7 @@ export interface PlaqueLines {
 
 // `caught` must hold released catalog entries only, so a pending catch never spoils set progress.
 export function plaqueLines(entry: number, row: ReefSpeciesRow, caught: Set<number>): PlaqueLines {
-  const def = SPECIES_DEFS[ENTRIES[entry]?.s ?? -1];
+  const def = isLegendary(entry) ? { ...LEGENDARY_DEFS[legendaryIndex(entry)]!, marks: '' } : SPECIES_DEFS[ENTRIES[entry]?.s ?? -1];
   const set = setsContaining(entry).find((s) => s.level === 'species');
   const { have, total } = set ? setProgress(set, caught) : { have: 0, total: 0 };
   const project = row.first_project.split('/').filter(Boolean).pop();

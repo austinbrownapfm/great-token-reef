@@ -17,7 +17,7 @@ export interface RosterFish {
   firstProject: string;
 }
 
-export const RARITY_RANK: Record<string, number> = { epic: 0, rare: 1, uncommon: 2, common: 3, legendary: 4 };
+export const RARITY_RANK: Record<string, number> = { legendary: -1, epic: 0, rare: 1, uncommon: 2, common: 3 };
 
 // One fish per species, drawn shiny if any shiny of it was caught.
 function toRoster(s: ReefSpeciesRow): RosterFish {
@@ -36,7 +36,6 @@ function toRoster(s: ReefSpeciesRow): RosterFish {
 /** The automatic roster: rarest first so epics and shinies always swim; ties go to the latest catch. */
 export function pickRoster(species: ReefSpeciesRow[], n: number): RosterFish[] {
   return [...species]
-    .filter((s) => s.rarity !== 'legendary')
     .sort((a, b) => (RARITY_RANK[a.rarity] ?? 9) - (RARITY_RANK[b.rarity] ?? 9) || b.last_caught - a.last_caught)
     .slice(0, n)
     .map(toRoster);
@@ -44,7 +43,7 @@ export function pickRoster(species: ReefSpeciesRow[], n: number): RosterFish[] {
 
 /** Picked fish in pick order (capped), then this session's guests on top of the cap; ids not in `species` are skipped. */
 export function rosterFromPick(species: ReefSpeciesRow[], pick: number[], guests: number[], cap: number): RosterFish[] {
-  const rows = new Map(species.filter((s) => s.rarity !== 'legendary').map((s) => [s.species, s]));
+  const rows = new Map(species.map((s) => [s.species, s]));
   const picked = [...new Set(pick)].flatMap((id) => rows.get(id) ?? []).slice(0, cap);
   const used = new Set(picked.map((s) => s.species));
   const extra = guests.flatMap((id) => {
@@ -66,7 +65,7 @@ export function overflowGuests(held: ReefPending['all'], shownIds: Set<number>, 
   const have = new Set(guests);
   const extra: number[] = [];
   for (const h of held) {
-    if (shownIds.has(h.id) || h.rarity === 'legendary' || known.has(h.species) || have.has(h.species)) continue;
+    if (shownIds.has(h.id) || known.has(h.species) || have.has(h.species)) continue;
     have.add(h.species);
     extra.push(h.species);
   }

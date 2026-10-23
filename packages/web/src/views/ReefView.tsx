@@ -3,7 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import {
   SPECIES_COUNT,
+  LEGENDARY_DEFS,
+  LEGENDARY_ID_BASE,
   catchesEarned,
+  legendaryThreshold,
   milestoneAt,
   nextLegendary,
   speciesRarity,
@@ -11,16 +14,18 @@ import {
 import {
   api,
   type ReefAgent,
+  type ReefCollection,
   type CodexLimits,
   type ReefSessionRow,
   type ReefSummary,
 } from '../lib/api';
 import { compactNumber, formatDate, formatDateTime, timeAgo } from '../lib/format';
+import { previewLegendary } from '../lib/legendaryRows';
 import { RARITY_PILL } from '../lib/rarity';
 import { officialFresh } from '../lib/reefQuota';
 import { NO_HELD_REWARDS, speciesSetOf, visibleRewards } from '../lib/tankDecor';
 import { uiEvent } from '../lib/telemetry';
-import { Fish, LegendFish } from '../components/Fish';
+import { Fish } from '../components/Fish';
 import { ReefInventory } from '../components/ReefInventory';
 import { Tank } from '../components/Tank';
 import { Empty, Loading, chip, inputCls } from '../components/ui';
@@ -583,6 +588,7 @@ type RarityFilter = (typeof RARITY_FILTERS)[number];
 const todayLocal = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local tz
 
 function Collection({ highlight, held }: { highlight?: number; held: ReadonlySet<string> }) {
+  const { reefLegends } = useSearch({ strict: false }) as { reefLegends?: 'preview' };
   const [date, setDate] = useState<'all' | string>('all');
   const [rarity, setRarity] = useState<RarityFilter>('all');
   const isToday = date === todayLocal();
@@ -673,21 +679,7 @@ function Collection({ highlight, held }: { highlight?: number; held: ReadonlySet
       {date === 'all' ? (
         !col ? null : (
           <>
-            {rarity === 'all' && col.legendary.length > 0 && (
-              <div className="mt-3 flex gap-4 rounded-lg border border-orange-200 bg-orange-50 p-3 dark:border-orange-900 dark:bg-orange-950/30">
-                {col.legendary.map((l) => (
-                  <div key={l.species} className="text-center">
-                    <LegendFish index={l.species} name={l.name} className="h-16 w-16 object-contain" />
-                    <div className="mt-1 text-xs font-medium">{l.name}</div>
-                    <div className="text-[10px] text-zinc-400">{compactNumber(l.depth_tokens)} lifetime</div>
-                    <div className="text-[10px] text-zinc-400" title={l.project}>
-                      Caught in {basename(l.project)}
-                    </div>
-                    <div className="text-[10px] text-zinc-400">{formatDateTime(l.caught_at)}</div>
-                  </div>
-                ))}
-              </div>
-            )}
+            {rarity === 'all' && <LegendaryStrip catches={reefLegends === 'preview' ? previewLegendary() : col.legendary} />}
             {speciesShown.length === 0 ? (
               <Empty>
                 {rarity === 'all' ? 'Nothing caught yet. Go burn some tokens.' : `No ${rarity} species caught yet.`}
@@ -762,6 +754,53 @@ function Collection({ highlight, held }: { highlight?: number; held: ReadonlySet
 }
 
 // --- helpers -------------------------------------------------------------------
+
+type LegendaryCatch = ReefCollection['legendary'][number];
+
+// Twelve slots in ladder order, each with a regular and a shiny state; an unearned one is a dark silhouette with its token threshold.
+function LegendaryStrip({ catches }: { catches: LegendaryCatch[] }) {
+  const find = (i: number, shiny: boolean) => catches.find((c) => c.species === LEGENDARY_ID_BASE + i && !!c.shiny === shiny);
+  return (
+    <div className="mt-3 rounded-lg border border-orange-200 bg-orange-50 p-3 dark:border-orange-900 dark:bg-orange-950/30">
+      <div className="text-[10px] uppercase tracking-wide text-zinc-400">Legendaries · thresholds are tokens since install</div>
+      <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {LEGENDARY_DEFS.map((d, i) => (
+          <div key={d.name} className="rounded-md border border-orange-200/70 p-2 text-center dark:border-orange-900/70">
+            <div className="text-xs font-medium">{d.name}</div>
+            <div className="mt-1 grid grid-cols-2 gap-1">
+              {[false, true].map((shiny) => {
+                const c = find(i, shiny);
+                return (
+                  <div key={String(shiny)} data-legend-slot={`${i}-${shiny ? 1 : 0}`}>
+                    <Fish
+                      species={LEGENDARY_ID_BASE + i}
+                      shiny={shiny}
+                      title={c ? `${d.name}${shiny ? ' (shiny)' : ''}` : `Not caught yet: ${compactNumber(legendaryThreshold(i, shiny))} tokens since install`}
+                      className={`mx-auto h-12 w-full [&>svg]:h-full [&>svg]:w-full ${c ? '' : 'opacity-70 brightness-0'} ${c && shiny ? 'reef-shiny' : ''}`}
+                    />
+                    <div className="mt-0.5 text-[10px] text-zinc-400">
+                      {c ? (
+                        <>
+                          {shiny ? '✨ ' : ''}
+                          {formatDateTime(c.caught_at)}
+                        </>
+                      ) : (
+                        <>
+                          {shiny ? '✨ ' : ''}
+                          {compactNumber(legendaryThreshold(i, shiny))}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 const basename = (p: string) => p.split('/').filter(Boolean).pop() ?? p ?? '?';
 
