@@ -1,0 +1,14 @@
+{
+  "name": "great-token-reef",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@11.17.0",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "dev": "echo 'dev: filled in a later task' && exit 1",
+    "start": "echo 'start: filled in a later task' && exit 1",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "icons": "echo 'icons: filled in a later task' && exit 1"
+  }
+}
