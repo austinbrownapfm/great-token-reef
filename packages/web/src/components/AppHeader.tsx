@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router';
+import { ReefWidget } from './ReefWidget';
 
 const LINKS = [
   ['/', 'Reef'],
@@ -22,7 +23,7 @@ export function AppHeader() {
           {label}
         </Link>
       ))}
-      <span className="ml-auto flex items-center gap-2">{/* ReefWidget lands in the reef-view task */}</span>
+      <span className="ml-auto flex items-center gap-2"><ReefWidget /></span>
     </nav>
   );
 }

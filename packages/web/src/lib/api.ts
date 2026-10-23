@@ -3,7 +3,6 @@ import type { ConnectStatus, FishPicks, OpenPr, ReefVisitorError } from '@gtr/sh
 // Thin typed fetch client over the REST API. Types come from @gtr/shared —
 // the same schemas the server validates against.
 
-
 async function get<T>(path: string, params?: Record<string, string | number | boolean>): Promise<T> {
   const url = new URL(path, window.location.origin);
   for (const [k, v] of Object.entries(params ?? {})) {
@@ -94,8 +93,7 @@ export interface ReefPending {
   all: { id: number; species: number; shiny: number; rarity: string }[];
   events: ReefEvent[];
   eventCount: number;
-  /** Optional: a server not yet restarted omits it. */
-  visitorErrors?: ReefVisitorError[];
+  visitorErrors: ReefVisitorError[];
 }
 
 export type ReefEventKind = 'pr' | 'ticket' | 'whale' | 'set';

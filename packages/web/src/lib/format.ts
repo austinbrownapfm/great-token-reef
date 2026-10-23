@@ -1,5 +1,4 @@
-// The one place date/duration formatting lives (the old app defined
-// formatDate 11 times — see rewrite-analysis.md).
+// The one place date/duration formatting lives.
 
 const DATE = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
 const DATE_YEAR = new Intl.DateTimeFormat('en-US', {

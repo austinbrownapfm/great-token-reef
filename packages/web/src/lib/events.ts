@@ -34,8 +34,8 @@ export function connectEventStream(queryClient: QueryClient): void {
         for (const key of INVALIDATIONS[type] ?? []) {
           void queryClient.invalidateQueries({ queryKey: [key] });
         }
-      } catch {
-        // Malformed event — the next poll/refetch still catches up.
+      } catch (err) {
+        console.warn('[events] malformed change event, ignoring', err);
       }
     });
   };

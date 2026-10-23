@@ -1,4 +1,4 @@
-/** Fire-and-forget UI usage event (rewrite-plan 1.6). Never throws. */
+/** Fire-and-forget UI usage event. Never throws. */
 export function uiEvent(name: string, detail?: string): void {
   void fetch('/api/events/ui', {
     method: 'POST',

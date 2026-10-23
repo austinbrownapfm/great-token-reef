@@ -1,6 +1,7 @@
 import { Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import { AppHeader } from './components/AppHeader';
 import { Empty } from './components/ui';
+import { ReefView } from './views/ReefView';
 import { parseStormLevel, type StormLevel } from './lib/tankEnv';
 import { parseDevBackdrop, parseDevDecor } from './lib/tankDecor';
 
@@ -13,8 +14,7 @@ const rootRoute = createRootRoute({
   ),
 });
 
-// Placeholders until ReefView and ConnectView exist.
-const ReefView = () => <Empty>The reef is on its way.</Empty>;
+// Placeholder until ConnectView exists.
 const ConnectView = () => <Empty>Connections are on their way.</Empty>;
 
 const reefRoute = createRoute({
