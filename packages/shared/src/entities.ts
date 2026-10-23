@@ -20,3 +20,21 @@ export const OpenPr = z.object({
   needsMe: z.boolean(), botFindings: z.number().int(), createdAt: z.number().int(),
 });
 export type OpenPr = z.infer<typeof OpenPr>;
+
+export const ConnectStatus = z.object({
+  claude: z.object({ detected: z.boolean(), limitsFetchedAt: z.number().nullable() }),
+  github: z.object({
+    connected: z.boolean(),
+    source: z.enum(['gh', 'token']).nullable(),
+    login: z.string().nullable(),
+    orgs: z.array(z.string()),
+    error: z.string().nullable(),
+  }),
+  jira: z.object({
+    connected: z.boolean(),
+    baseUrl: z.string().nullable(),
+    email: z.string().nullable(),
+    error: z.string().nullable(),
+  }),
+});
+export type ConnectStatus = z.infer<typeof ConnectStatus>;
