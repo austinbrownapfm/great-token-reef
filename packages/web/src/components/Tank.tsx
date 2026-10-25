@@ -393,6 +393,8 @@ export function Tank({ onHeldRewards }: {
         <svg
           key={`w${i}`}
           viewBox={`0 0 30 ${w.height}`}
+          // The 30-wide viewBox meets a 20px box; anchor to the bottom so the stem reaches the sand.
+          preserveAspectRatio="xMidYMax meet"
           className="reef-sway reef-nightdim absolute w-5"
           style={{ left: `${w.left}%`, bottom: decor.floor - 6, height: w.height, animationDelay: `${w.delay}s` }}
         >
