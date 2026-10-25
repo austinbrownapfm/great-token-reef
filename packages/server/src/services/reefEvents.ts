@@ -18,8 +18,6 @@ export interface ReefEventRow {
 const RELEASED_EVENT_KEY = 'releasedEventId';
 
 export function emitReefEvent(db: Db, kind: ReefEventKind, ref: string, payload: object, at: number): number | null {
-  // Seed before the first insert, or boot-time events would seed as already released.
-  getReleasedEventId(db);
   const result = db.prepare(
     `INSERT INTO reef_events (kind, ref, payload_json, created_at) VALUES (?, ?, ?, ?)
      ON CONFLICT(kind, ref) DO NOTHING`,
@@ -30,17 +28,9 @@ export function emitReefEvent(db: Db, kind: ReefEventKind, ref: string, payload:
   return id;
 }
 
-// Events at or below this id were already played; history seeds in as released.
+// Events at or below this id were already played; migration 1 seeds it at 0.
 export function getReleasedEventId(db: Db): number {
-  const raw = getSetting(db, RELEASED_EVENT_KEY);
-  if (raw) return Number(raw);
-  db.prepare(
-    `INSERT OR IGNORE INTO settings (key, value)
-     VALUES (?, (SELECT CAST(COALESCE(MAX(id), 0) AS TEXT) FROM reef_events))`,
-  ).run(RELEASED_EVENT_KEY);
-  const id = Number(getSetting(db, RELEASED_EVENT_KEY));
-  console.log(`[reef] seeded released event mark at ${id}`);
-  return id;
+  return Number(getSetting(db, RELEASED_EVENT_KEY) ?? 0);
 }
 
 export function pendingEvents(db: Db): ReefEventRow[] {

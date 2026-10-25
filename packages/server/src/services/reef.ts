@@ -474,17 +474,9 @@ export function getReefEpoch(db: Db): number {
 
 const RELEASED_KEY = 'releasedCatchId';
 
-// Catches at or below this id are already in the tank; history seeds in as released.
+// Catches at or below this id are already in the tank; migration 1 seeds it at 0.
 export function getReleasedCatchId(db: Db): number {
-  const raw = getSetting(db, RELEASED_KEY);
-  if (raw) return Number(raw);
-  db.prepare(
-    `INSERT OR IGNORE INTO settings (key, value)
-     VALUES (?, (SELECT CAST(COALESCE(MAX(id), 0) AS TEXT) FROM cc_catches))`,
-  ).run(RELEASED_KEY);
-  const id = Number(getSetting(db, RELEASED_KEY));
-  console.log(`[reef] seeded released mark at ${id}`);
-  return id;
+  return Number(getSetting(db, RELEASED_KEY) ?? 0);
 }
 
 export interface ReefPending {

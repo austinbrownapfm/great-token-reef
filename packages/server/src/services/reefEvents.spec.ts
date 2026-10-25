@@ -64,15 +64,13 @@ describe('reef events', () => {
     expect(err.mock.calls.some((c) => String(c[0]).startsWith('[reef] bad event payload id='))).toBe(true);
   });
 
-  it('seeds the mark to the current max on first read and logs it', () => {
+  it('a fresh database starts with every event pending', () => {
     const db = fixtureDb();
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     const insert = db.prepare("INSERT INTO reef_events (kind, ref, payload_json, created_at) VALUES (?, ?, '{}', 0)");
     insert.run('whale', 'w1');
     insert.run('set', 's1');
-    expect(getReleasedEventId(db)).toBe(maxEventId(db));
-    expect(log.mock.calls.some((c) => String(c[0]).includes('[reef] seeded released event mark'))).toBe(true);
-    expect(pendingEvents(db)).toEqual([]);
+    expect(getReleasedEventId(db)).toBe(0);
+    expect(pendingEvents(db)).toHaveLength(2);
   });
 
   it('seeds to 0 on an empty table', () => {

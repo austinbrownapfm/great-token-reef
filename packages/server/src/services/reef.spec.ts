@@ -432,12 +432,12 @@ describe('release mark', () => {
   const maxId = (db: ReturnType<typeof fixtureDb>) =>
     (db.prepare('SELECT MAX(id) AS m FROM cc_catches').get() as { m: number }).m;
 
-  it('seeds the mark to the current max so history is not new', () => {
+  it('a catch landing before any pending read is still pending on a fresh database', () => {
     const db = fixtureDb();
-    addCatches(db, 3);
+    addCatch(db);
     const p = reefPending(db);
-    expect(p.count).toBe(0);
-    expect(p.releasedId).toBe(maxId(db));
+    expect(p.count).toBe(1);
+    expect(p.releasedId).toBe(0);
   });
 
   it('seeds to 0 on an empty collection', () => {
@@ -449,7 +449,7 @@ describe('release mark', () => {
   it('reports catches above the mark', () => {
     const db = fixtureDb();
     addCatches(db, 3);
-    reefPending(db);
+    releaseReef(db, maxId(db));
     addCatches(db, 12);
     const p = reefPending(db);
     expect(p.count).toBe(12);
@@ -462,7 +462,7 @@ describe('release mark', () => {
   it('release never moves backwards and clamps to max', () => {
     const db = fixtureDb();
     addCatches(db, 2);
-    reefPending(db);
+    releaseReef(db, maxId(db));
     addCatches(db, 3);
     const max = maxId(db);
     expect(releaseReef(db, max + 50).releasedId).toBe(max);
@@ -473,7 +473,7 @@ describe('release mark', () => {
   it('a catch landing after release stays pending', () => {
     const db = fixtureDb();
     addCatches(db, 2);
-    reefPending(db);
+    releaseReef(db, maxId(db));
     addCatches(db, 2);
     releaseReef(db, maxId(db));
     expect(reefPending(db).count).toBe(0);
@@ -488,7 +488,7 @@ describe('release mark', () => {
       db.prepare('UPDATE cc_catches SET size = ? WHERE id = ?').run(size, maxId(db));
     };
     sized(30);
-    reefPending(db);
+    releaseReef(db, maxId(db));
     sized(55);
     const best = () => reefCollection(db).species[0] as { best_size: number; released_best_size: number | null };
     expect(best()).toMatchObject({ best_size: 55, released_best_size: 30 });
@@ -506,6 +506,7 @@ describe('release mark', () => {
   it('summary carries the pending count', () => {
     const db = fixtureDb();
     addCatches(db, 1);
+    releaseReef(db, maxId(db));
     expect(reefSummary(db).pending).toBe(0);
     addCatches(db, 2);
     expect(reefSummary(db).pending).toBe(2);
