@@ -1,4 +1,4 @@
-import { LEGENDARY_DEFS, LEGENDARY_ID_BASE } from '@gtr/shared';
+import { LEGENDARY_DEFS, LEGENDARY_ID_BASE, legendaryThreshold } from '@gtr/shared';
 import type { ReefCollection, ReefSpeciesRow } from './api';
 
 type LegendaryCatch = ReefCollection['legendary'][number];
@@ -40,4 +40,13 @@ export function previewLegendary(): LegendaryCatch[] {
 /** Catalog species plus legendary rows; with `preview`, the legendaries are the made-up set. */
 export function allSpecies(col: Pick<ReefCollection, 'species' | 'legendary'>, preview: boolean): ReefSpeciesRow[] {
   return [...col.species, ...legendaryRows(preview ? previewLegendary() : col.legendary)];
+}
+
+/** The one tier a collection slot shows: shiny once caught, else the regular, with the next threshold to chase. */
+export function legendarySlot(catches: LegendaryCatch[], index: number): { shiny: boolean; caught: LegendaryCatch | undefined; next: number | null } {
+  const mine = catches.filter((c) => c.species === LEGENDARY_ID_BASE + index);
+  const shiny = mine.find((c) => c.shiny);
+  if (shiny) return { shiny: true, caught: shiny, next: null };
+  const regular = mine.find((c) => !c.shiny);
+  return { shiny: false, caught: regular, next: legendaryThreshold(index, !!regular) };
 }

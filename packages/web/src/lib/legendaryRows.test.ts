@@ -3,7 +3,7 @@ import { LEGENDARY_DEFS, LEGENDARY_ID_BASE } from '@gtr/shared';
 import type { ReefCollection } from './api';
 import { searchFish } from './reefFishPicker';
 import { maskCollection } from './tankRelease';
-import { allSpecies, legendaryRows, previewLegendary } from './legendaryRows';
+import { allSpecies, legendaryRows, legendarySlot, previewLegendary } from './legendaryRows';
 
 const l = (species: number, shiny: number, caught_at: number, project = '/p/a'): ReefCollection['legendary'][number] =>
   ({ species, name: `L${species}`, shiny, size: 0, caught_at, depth_tokens: 1, project });
@@ -40,5 +40,27 @@ describe('Inventory picker rows', () => {
     expect(searchFish(released, 'l1003', 'legendary', new Set()).map((r) => r.species)).toEqual([1003]);
     const rows = new Map(released.map((r) => [r.species, r]));
     expect(rows.get(1003)).toMatchObject({ name: 'L1003', rarity: 'legendary', shiny_count: 1 });
+  });
+});
+
+describe('legendarySlot', () => {
+  const row = (i: number, shiny: boolean, at: number): ReefCollection['legendary'][number] => ({
+    species: LEGENDARY_ID_BASE + i, name: LEGENDARY_DEFS[i]!.name, shiny: shiny ? 1 : 0, size: 400, caught_at: at,
+    depth_tokens: 0, project: '', id: at, seed: `s${at}`, session_id: 'lifetime', catch_index: i, rarity: 'legendary', agent: null,
+  } as ReefCollection['legendary'][number]);
+
+  it('shows the regular silhouette and its threshold when nothing is caught', () => {
+    expect(legendarySlot([], 0)).toEqual({ shiny: false, caught: undefined, next: 100_000_000 });
+  });
+
+  it('shows the regular catch and points at the shiny threshold', () => {
+    const reg = row(0, false, 1);
+    expect(legendarySlot([reg], 0)).toEqual({ shiny: false, caught: reg, next: 200_000_000 });
+  });
+
+  it('shows only the shiny once it is caught', () => {
+    const reg = row(1, false, 1);
+    const shiny = row(1, true, 2);
+    expect(legendarySlot([reg, shiny], 1)).toEqual({ shiny: true, caught: shiny, next: null });
   });
 });
