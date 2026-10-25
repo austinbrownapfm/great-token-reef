@@ -9,6 +9,7 @@ runs entirely on your own computer: nothing is uploaded anywhere.
 
 ```sh
 nvm install 24
+corepack enable
 pnpm install
 pnpm start
 ```
@@ -54,5 +55,6 @@ Replace `icon.png` in the repo root, then run `pnpm icons`.
 - `GTR_PORT` changes the port (default `3033`).
 - `GTR_DATA_DIR` changes the data folder (default `~/.great-token-reef`).
 - `GTR_CC_PROJECTS_DIR` changes where Claude Code logs are read from.
-- `GTR_CODEX_SESSIONS_DIR` changes where Codex logs are read from.
+- `GTR_CODEX_SESSIONS_DIR` changes where Codex logs are read from. Without it,
+  the Reef reads `sessions` inside `$CODEX_HOME` if set, otherwise `~/.codex`.
 - `GTR_NO_OPEN=1` stops the browser from opening on start.
