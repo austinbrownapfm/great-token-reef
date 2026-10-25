@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ConnectStatus } from '@gtr/shared';
-import { cardState, runCardMutation } from './connect';
+import { cardState, parseRepoList, runCardMutation } from './connect';
 
 const gh = (over: Partial<ConnectStatus['github']>): ConnectStatus['github'] => ({
-  connected: false, source: null, login: null, orgs: [], error: null, ...over,
+  connected: false, source: null, login: null, orgs: [], excludedRepos: [], error: null, ...over,
 });
 
 describe('cardState', () => {
@@ -39,5 +39,12 @@ describe('runCardMutation', () => {
     runCardMutation(a, [a], 'secret');
     a.mutate.mock.calls[0]![1].onSuccess();
     expect(a.reset).toHaveBeenCalledOnce();
+  });
+});
+
+describe('parseRepoList', () => {
+  it('splits on commas, trims and drops empties', () => {
+    expect(parseRepoList(' a/b , ,c/d,')).toEqual(['a/b', 'c/d']);
+    expect(parseRepoList('')).toEqual([]);
   });
 });

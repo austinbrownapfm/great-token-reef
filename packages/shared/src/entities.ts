@@ -28,6 +28,7 @@ export const ConnectStatus = z.object({
     source: z.enum(['gh', 'token']).nullable(),
     login: z.string().nullable(),
     orgs: z.array(z.string()),
+    excludedRepos: z.array(z.string()),
     error: z.string().nullable(),
   }),
   jira: z.object({

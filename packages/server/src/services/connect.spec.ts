@@ -5,6 +5,7 @@ import {
   connectStatus,
   disconnectGithub,
   disconnectJira,
+  setGithubExcludedRepos,
   setGithubOrgs,
 } from './connect.ts';
 import { fakeConnectDeps, fixtureDb } from './fixtures.ts';
@@ -85,6 +86,23 @@ describe('setGithubOrgs', () => {
   });
 });
 
+describe('setGithubExcludedRepos', () => {
+  it('rejects invalid entries naming them, and stores valid ones', () => {
+    const db = fixtureDb();
+    const deps = fakeConnectDeps();
+    expect(() => setGithubExcludedRepos(db, deps, ['bad repo'])).toThrow('bad repo');
+    expect(() => setGithubExcludedRepos(db, deps, ['noslash'])).toThrow('noslash');
+    expect(getSetting(db, 'githubExcludedRepos')).toBeNull();
+    expect(setGithubExcludedRepos(db, deps, ['acme/old-service', 'Me/x.y_z']).github.excludedRepos).toEqual(['acme/old-service', 'Me/x.y_z']);
+    expect(getSetting(db, 'githubExcludedRepos')).toBe('["acme/old-service","Me/x.y_z"]');
+  });
+
+  it('dedupes', () => {
+    const db = fixtureDb();
+    expect(setGithubExcludedRepos(db, fakeConnectDeps(), ['a/b', 'a/b']).github.excludedRepos).toEqual(['a/b']);
+  });
+});
+
 describe('Jira', () => {
   const input = { baseUrl: 'https://example.atlassian.net/', email: 'me@example.com', apiToken: 'jira-secret' };
 
@@ -114,14 +132,15 @@ describe('disconnect', () => {
     const deps = fakeConnectDeps();
     await connectGithub(db, deps, { source: 'token', token: 'ghp_x' });
     setGithubOrgs(db, deps, ['echo-reef']);
+    setGithubExcludedRepos(db, deps, ['acme/x']);
     await connectJira(db, deps, { baseUrl: 'https://a.test', email: 'a@b.c', apiToken: 'j' });
     const gh = disconnectGithub(db, deps);
     const jira = disconnectJira(db, deps);
     expect(deps.secrets.size).toBe(0);
-    for (const key of ['githubSource', 'githubLogin', 'githubOrgs', 'jiraBaseUrl', 'jiraEmail']) {
+    for (const key of ['githubSource', 'githubLogin', 'githubOrgs', 'githubExcludedRepos', 'jiraBaseUrl', 'jiraEmail']) {
       expect(getSetting(db, key)).toBeNull();
     }
-    expect(gh.github).toMatchObject({ connected: false, login: null, orgs: [] });
+    expect(gh.github).toMatchObject({ connected: false, login: null, orgs: [], excludedRepos: [] });
     expect(jira.jira).toMatchObject({ connected: false, baseUrl: null });
   });
 });

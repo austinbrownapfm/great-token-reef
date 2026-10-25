@@ -31,6 +31,10 @@ describe('buildPrSearch', () => {
     expect(buildPrSearch('open', [])).toBe('is:pr is:open author:@me');
     expect(buildPrSearch('merged', ['a', 'b'])).toBe('is:pr is:merged author:@me org:a org:b');
   });
+
+  it('appends a -repo qualifier per excluded repo', () => {
+    expect(buildPrSearch('open', ['a'], ['acme/x', 'me/y'])).toBe('is:pr is:open author:@me org:a -repo:acme/x -repo:me/y');
+  });
 });
 
 describe('fetchOpenPrs', () => {
@@ -43,7 +47,7 @@ describe('fetchOpenPrs', () => {
       calls.push({ auth: headers.get('Authorization'), ua: headers.get('User-Agent'), after: sent.variables.after, signal: init.signal, query: sent.query });
       return new Response(JSON.stringify(pages.shift()), { status: 200 });
     }) as unknown as typeof fetch;
-    const { me, prs } = await fetchOpenPrs('tok', [], fake);
+    const { me, prs } = await fetchOpenPrs('tok', [], [], fake);
     expect(me).toBe('octo');
     expect(prs).toHaveLength(2);
     expect(prs[0]!.checks).toBe('failure');
@@ -64,22 +68,30 @@ describe('fetchOpenPrs', () => {
       bodies.push(init.body as string);
       return new Response(JSON.stringify(page([], false)), { status: 200 });
     }) as unknown as typeof fetch;
-    await fetchOpenPrs('tok', ['echo'], fake);
-    await fetchOpenPrs('tok', [], fake);
+    await fetchOpenPrs('tok', ['echo'], [], fake);
+    await fetchOpenPrs('tok', [], [], fake);
     expect(JSON.parse(bodies[0]!).variables.q).toBe('is:pr is:open author:@me org:echo');
     expect(JSON.parse(bodies[1]!).variables.q).toBe('is:pr is:open author:@me');
     expect(bodies.join('')).not.toContain('example-org');
   });
 
+  it('drops a returned PR whose repo is excluded, ignoring case', async () => {
+    const fake = (async () => new Response(JSON.stringify(page([node(1, null), node(2, null)], false)), { status: 200 })) as unknown as typeof fetch;
+    const { prs } = await fetchOpenPrs('tok', [], ['ECHO/Reef'], fake);
+    expect(prs).toEqual([]);
+    const kept = await fetchOpenPrs('tok', [], ['echo/other'], fake);
+    expect(kept.prs).toHaveLength(2);
+  });
+
   it('throws GithubAuthError on 401', async () => {
     const fake401 = (async () => new Response('{}', { status: 401 })) as unknown as typeof fetch;
-    await expect(fetchOpenPrs('x', [], fake401)).rejects.toBeInstanceOf(GithubAuthError);
+    await expect(fetchOpenPrs('x', [], [], fake401)).rejects.toBeInstanceOf(GithubAuthError);
   });
 
   it('builds a failure message from the status and body only, never the token', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const fake = (async () => new Response('server exploded', { status: 502, headers: { 'x-echo': 'ghp_tokenvalue' } })) as unknown as typeof fetch;
-    const err = await fetchOpenPrs('ghp_tokenvalue', [], fake).catch((e: Error) => e);
+    const err = await fetchOpenPrs('ghp_tokenvalue', [], [], fake).catch((e: Error) => e);
     expect((err as Error).message).toBe('[github] 502: server exploded');
   });
 });
@@ -99,7 +111,7 @@ describe('fetchMergedPrs', () => {
       sent.push({ q: body.variables.q, after: body.variables.after, query: body.query });
       return new Response(JSON.stringify(pages.shift()), { status: 200 });
     }) as unknown as typeof fetch;
-    const prs = await fetchMergedPrs('tok', ['echo'], '2026-10-20T08:30:00.000Z', fake);
+    const prs = await fetchMergedPrs('tok', ['echo'], [], '2026-10-20T08:30:00.000Z', fake);
     expect(sent[0]!.q).toBe('is:pr is:merged author:@me org:echo merged:>=2026-10-20T08:30:00Z');
     expect(sent[0]!.query).toMatch(/mergedAt/);
     expect(sent[1]!.after).toBe('m1');
@@ -109,10 +121,16 @@ describe('fetchMergedPrs', () => {
     ]);
   });
 
+  it('drops a returned merged PR whose repo is excluded, ignoring case', async () => {
+    const fake = (async () => new Response(JSON.stringify(mergedPage([merged('reef', 1), merged('tank', 2)], false)), { status: 200 })) as unknown as typeof fetch;
+    const prs = await fetchMergedPrs('tok', [], ['ECHO/Reef'], '2026-10-20T00:00:00Z', fake);
+    expect(prs.map((p) => p.id)).toEqual(['echo/tank#2']);
+  });
+
   it('throws on graphql errors', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const fake = (async () => new Response(JSON.stringify({ errors: [{ message: 'bad' }] }), { status: 200 })) as unknown as typeof fetch;
-    await expect(fetchMergedPrs('tok', [], '2026-10-20T00:00:00Z', fake)).rejects.toThrow('bad');
+    await expect(fetchMergedPrs('tok', [], [], '2026-10-20T00:00:00Z', fake)).rejects.toThrow('bad');
   });
 });
 

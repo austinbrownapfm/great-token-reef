@@ -65,6 +65,20 @@ describe('/api/connect', () => {
     expect(connect.onChange).toHaveBeenCalledTimes(3);
   });
 
+  it('PUT /github/excluded-repos stores and returns the status, notifies; invalid body is a 400', async () => {
+    const { send, connect } = setup();
+    const res = await send('PUT', '/github/excluded-repos', { repos: ['acme/old'] });
+    expect(res.status).toBe(200);
+    expect((await res.json()).github.excludedRepos).toEqual(['acme/old']);
+    expect(connect.onChange).toHaveBeenCalledTimes(1);
+    expect((await send('GET', '')).status).toBe(200);
+    const bad = await send('PUT', '/github/excluded-repos', { repos: ['noslash'] });
+    expect(bad.status).toBe(400);
+    expect((await bad.json()).error).toContain('noslash');
+    expect((await send('PUT', '/github/excluded-repos', { repos: 'x' })).status).toBe(400);
+    expect(connect.onChange).toHaveBeenCalledTimes(1);
+  });
+
   it('onChange throwing never changes a successful connect response', async () => {
     const { send } = setup({ onChange: () => { throw new Error('sync exploded'); } });
     const res = await send('PUT', '/github', { source: 'token', token: 'ghp_secret' });

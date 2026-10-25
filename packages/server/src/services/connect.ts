@@ -22,6 +22,7 @@ export interface ConnectDeps {
 export type GithubConnectInput = { source: 'gh' } | { source: 'token'; token: string };
 
 const ORG = /^[A-Za-z0-9-]+$/;
+const REPO = /^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/;
 const failures = new WeakMap<Db, { github?: string; jira?: string }>();
 
 const failureOf = (db: Db) => {
@@ -46,6 +47,17 @@ export function parseOrgs(raw: string | null): string[] {
   }
 }
 
+export function parseExcludedRepos(raw: string | null): string[] {
+  if (raw === null) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((r): r is string => typeof r === 'string') : [];
+  } catch {
+    console.warn('[connect] stored githubExcludedRepos is not valid JSON; treating as empty');
+    return [];
+  }
+}
+
 export function connectStatus(db: Db, deps: ConnectDeps): ConnectStatus {
   const source = getSetting(db, 'githubSource');
   const login = getSetting(db, 'githubLogin');
@@ -60,6 +72,7 @@ export function connectStatus(db: Db, deps: ConnectDeps): ConnectStatus {
       source: source === 'gh' || source === 'token' ? source : null,
       login,
       orgs: parseOrgs(getSetting(db, 'githubOrgs')),
+      excludedRepos: parseExcludedRepos(getSetting(db, 'githubExcludedRepos')),
       error: failed.github ?? stored('github'),
     },
     jira: {
@@ -109,9 +122,17 @@ export function setGithubOrgs(db: Db, deps: ConnectDeps, orgs: string[]): Connec
   return connectStatus(db, deps);
 }
 
+export function setGithubExcludedRepos(db: Db, deps: ConnectDeps, repos: string[]): ConnectStatus {
+  const bad = repos.find((repo) => !REPO.test(repo));
+  if (bad !== undefined) throw new Error(`Invalid repo (expected owner/repo): ${bad.slice(0, 40)}`);
+  setSetting(db, 'githubExcludedRepos', JSON.stringify([...new Set(repos)]));
+  console.log(`[connect] github excluded repos set (${repos.length})`);
+  return connectStatus(db, deps);
+}
+
 export function disconnectGithub(db: Db, deps: ConnectDeps): ConnectStatus {
   deps.keychain.delete('github-token');
-  for (const key of ['githubSource', 'githubLogin', 'githubOrgs']) deleteSetting(db, key);
+  for (const key of ['githubSource', 'githubLogin', 'githubOrgs', 'githubExcludedRepos']) deleteSetting(db, key);
   delete failureOf(db).github;
   console.log('[connect] github disconnected');
   return connectStatus(db, deps);

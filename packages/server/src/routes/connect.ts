@@ -9,6 +9,7 @@ import {
   connectStatus,
   disconnectGithub,
   disconnectJira,
+  setGithubExcludedRepos,
   setGithubOrgs,
 } from '../services/connect.ts';
 
@@ -17,6 +18,7 @@ const GithubBody = z.discriminatedUnion('source', [
   z.object({ source: z.literal('token'), token: z.string().min(1).max(500) }),
 ]);
 const OrgsBody = z.object({ orgs: z.array(z.string().max(100)).max(100) });
+const ExcludedReposBody = z.object({ repos: z.array(z.string().max(200)).max(100) });
 const JiraBody = z.object({
   baseUrl: z.string().min(1).max(500),
   email: z.string().min(1).max(320),
@@ -41,6 +43,18 @@ export const connect = new Hono<AppEnv>()
     let status: ConnectStatus;
     try {
       status = setGithubOrgs(c.get('db'), c.get('connect'), body.data.orgs);
+    } catch (err) {
+      return c.json({ error: (err as Error).message }, 400);
+    }
+    notify(c);
+    return c.json(status);
+  })
+  .put('/github/excluded-repos', async (c) => {
+    const body = ExcludedReposBody.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: 'expected { repos: string[] }' }, 400);
+    let status: ConnectStatus;
+    try {
+      status = setGithubExcludedRepos(c.get('db'), c.get('connect'), body.data.repos);
     } catch (err) {
       return c.json({ error: (err as Error).message }, 400);
     }
