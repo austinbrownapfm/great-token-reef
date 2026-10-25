@@ -56,6 +56,21 @@ describe('visitor clients and the Keychain', () => {
     await expect(client.fetchOpen()).rejects.toThrow(/exit 51/);
   });
 
+  it('the search sent to GitHub omits bad stored orgs and repos', async () => {
+    const db = fixtureDb();
+    setSetting(db, 'githubSource', 'gh');
+    setSetting(db, 'githubOrgs', '["echo","bad org"]');
+    setSetting(db, 'githubExcludedRepos', '["a/b org:other","good/repo",""]');
+    const bodies: string[] = [];
+    vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+      bodies.push(init.body as string);
+      return new Response(JSON.stringify({ data: { viewer: { login: 'o' }, search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] } } }), { status: 200 });
+    });
+    await makeGithubClient(db, () => null, async () => 'tok')!.fetchOpen();
+    vi.unstubAllGlobals();
+    expect(JSON.parse(bodies[0]!).variables.q).toBe('is:pr is:open author:@me org:echo -repo:good/repo');
+  });
+
   it('a missing item (exit 44) is silent', () => {
     expect(keychainGet('jira-api-token', failing(44))).toBeNull();
     expect(warn).not.toHaveBeenCalled();

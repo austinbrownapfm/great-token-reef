@@ -218,6 +218,7 @@ export const api = {
     status: () => get<ConnectStatus>('/api/connect'),
     saveGithub: (body: { source: 'gh' } | { source: 'token'; token: string }) =>
       send<ConnectStatus>('PUT', '/api/connect/github', body),
+    saveGithubExcludedRepos: (repos: string[]) => send<ConnectStatus>('PUT', '/api/connect/github/excluded-repos', { repos }),
     saveGithubOrgs: (orgs: string[]) => send<ConnectStatus>('PUT', '/api/connect/github/orgs', { orgs }),
     disconnectGithub: () => send<ConnectStatus>('DELETE', '/api/connect/github'),
     saveJira: (body: { baseUrl: string; email: string; apiToken: string }) =>

@@ -29,9 +29,13 @@ export async function ghCliToken(exec: Exec = execFileAsync as unknown as Exec):
   return token;
 }
 
-export function buildPrSearch(kind: 'open' | 'merged', orgs: string[]): string {
-  return ['is:pr', `is:${kind}`, 'author:@me', ...orgs.map((org) => `org:${org}`)].join(' ');
+export function buildPrSearch(kind: 'open' | 'merged', orgs: string[], excludedRepos: string[] = []): string {
+  return ['is:pr', `is:${kind}`, 'author:@me', ...orgs.map((org) => `org:${org}`), ...excludedRepos.map((r) => `-repo:${r}`)].join(' ');
 }
+
+// Defence in depth: the search qualifier should already exclude these, but never show a hidden repo.
+const isExcluded = (excluded: Set<string>, owner: string, repo: string) => excluded.has(`${owner}/${repo}`.toLowerCase());
+const excludedSet = (repos: string[]) => new Set(repos.map((r) => r.toLowerCase()));
 
 const QUERY = `query($q: String!, $after: String) {
   viewer { login }
@@ -129,8 +133,9 @@ async function graphql(token: string, query: string, variables: Record<string, u
   return json;
 }
 
-export async function fetchOpenPrs(token: string, orgs: string[], fetchImpl: typeof fetch = fetch): Promise<GithubFetchResult> {
-  const q = buildPrSearch('open', orgs);
+export async function fetchOpenPrs(token: string, orgs: string[], excludedRepos: string[], fetchImpl: typeof fetch = fetch): Promise<GithubFetchResult> {
+  const q = buildPrSearch('open', orgs, excludedRepos);
+  const excluded = excludedSet(excludedRepos);
   let me = '';
   const prs: RawPr[] = [];
   let after: string | null = null;
@@ -139,7 +144,11 @@ export async function fetchOpenPrs(token: string, orgs: string[], fetchImpl: typ
     me = json.data.viewer.login;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const search: any = json.data.search;
-    for (const n of search.nodes) if (n?.number != null) prs.push(mapPr(n));
+    for (const n of search.nodes) {
+      if (n?.number == null) continue;
+      const pr = mapPr(n);
+      if (!isExcluded(excluded, pr.owner, pr.repo)) prs.push(pr);
+    }
     if (!search.pageInfo.hasNextPage) break;
     after = search.pageInfo.endCursor;
   }
@@ -156,11 +165,13 @@ const MERGED_QUERY = `query($q: String!, $after: String) {
 export async function fetchMergedPrs(
   token: string,
   orgs: string[],
+  excludedRepos: string[],
   sinceIso: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<MergedPr[]> {
   const since = new Date(sinceIso).toISOString().replace(/\.\d{3}Z$/, 'Z');
-  const q = `${buildPrSearch('merged', orgs)} merged:>=${since}`;
+  const q = `${buildPrSearch('merged', orgs, excludedRepos)} merged:>=${since}`;
+  const excluded = excludedSet(excludedRepos);
   const out: MergedPr[] = [];
   let after: string | null = null;
   for (;;) {
@@ -169,6 +180,7 @@ export async function fetchMergedPrs(
     const search: any = json.data.search;
     for (const n of search.nodes) {
       if (n?.number == null || !n.mergedAt) continue;
+      if (isExcluded(excluded, n.repository.owner?.login ?? '', n.repository.name)) continue;
       out.push({ id: `${n.repository.owner?.login ?? ''}/${n.repository.name}#${n.number}`, repo: n.repository.name, number: n.number, title: n.title, url: n.url, mergedAt: toSec(n.mergedAt) });
     }
     if (!search.pageInfo.hasNextPage) return out;

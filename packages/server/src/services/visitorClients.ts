@@ -1,5 +1,5 @@
 import type { Db } from '../store/db.ts';
-import { parseOrgs } from './connect.ts';
+import { parseExcludedRepos, parseOrgs } from './connect.ts';
 import { fetchMergedPrs, fetchOpenPrs, ghCliToken } from './github.ts';
 import { fetchDoneTickets } from './jira.ts';
 import type { KeychainAccount } from './keychain.ts';
@@ -26,6 +26,7 @@ export function makeGithubClient(db: Db, read: KeychainRead, ghToken: () => Prom
   const source = getSetting(db, 'githubSource');
   if (source !== 'gh' && source !== 'token') return null;
   const orgs = parseOrgs(getSetting(db, 'githubOrgs'));
+  const excludedRepos = parseExcludedRepos(getSetting(db, 'githubExcludedRepos'));
   let token: () => Promise<string>;
   if (source === 'gh') {
     token = ghToken;
@@ -37,8 +38,8 @@ export function makeGithubClient(db: Db, read: KeychainRead, ghToken: () => Prom
     token = async () => stored;
   }
   return {
-    fetchOpen: async () => fetchOpenPrs(await token(), orgs),
-    fetchMerged: async (since) => fetchMergedPrs(await token(), orgs, since),
+    fetchOpen: async () => fetchOpenPrs(await token(), orgs, excludedRepos),
+    fetchMerged: async (since) => fetchMergedPrs(await token(), orgs, excludedRepos, since),
   };
 }
 

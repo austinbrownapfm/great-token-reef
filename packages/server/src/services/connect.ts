@@ -22,6 +22,7 @@ export interface ConnectDeps {
 export type GithubConnectInput = { source: 'gh' } | { source: 'token'; token: string };
 
 const ORG = /^[A-Za-z0-9-]+$/;
+const REPO = /^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/;
 const failures = new WeakMap<Db, { github?: string; jira?: string }>();
 
 const failureOf = (db: Db) => {
@@ -35,16 +36,29 @@ const readable = (err: unknown, secret?: string) => {
   return secret ? message.split(secret).join('***') : message;
 };
 
-export function parseOrgs(raw: string | null): string[] {
+function parseFilterList(raw: string | null, key: string, valid: RegExp): string[] {
   if (raw === null) return [];
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((o): o is string => typeof o === 'string') : [];
+    parsed = JSON.parse(raw);
   } catch {
-    console.warn('[connect] stored githubOrgs is not valid JSON; treating as empty');
+    console.warn(`[connect] stored ${key} is not valid JSON; treating as empty`);
     return [];
   }
+  if (!Array.isArray(parsed)) return [];
+  const seen = new Set<string>();
+  const kept = parsed.filter((e): e is string => {
+    if (typeof e !== 'string' || !valid.test(e) || seen.has(e.toLowerCase())) return false;
+    seen.add(e.toLowerCase());
+    return true;
+  });
+  if (kept.length < parsed.length) console.warn(`[connect] stored ${key}: dropped ${parsed.length - kept.length} invalid or duplicate entries`);
+  return kept;
 }
+
+export const parseOrgs = (raw: string | null): string[] => parseFilterList(raw, 'githubOrgs', ORG);
+
+export const parseExcludedRepos = (raw: string | null): string[] => parseFilterList(raw, 'githubExcludedRepos', REPO);
 
 export function connectStatus(db: Db, deps: ConnectDeps): ConnectStatus {
   const source = getSetting(db, 'githubSource');
@@ -60,6 +74,7 @@ export function connectStatus(db: Db, deps: ConnectDeps): ConnectStatus {
       source: source === 'gh' || source === 'token' ? source : null,
       login,
       orgs: parseOrgs(getSetting(db, 'githubOrgs')),
+      excludedRepos: parseExcludedRepos(getSetting(db, 'githubExcludedRepos')),
       error: failed.github ?? stored('github'),
     },
     jira: {
@@ -109,9 +124,18 @@ export function setGithubOrgs(db: Db, deps: ConnectDeps, orgs: string[]): Connec
   return connectStatus(db, deps);
 }
 
+export function setGithubExcludedRepos(db: Db, deps: ConnectDeps, repos: string[]): ConnectStatus {
+  const bad = repos.find((repo) => !REPO.test(repo));
+  if (bad !== undefined) throw new Error(`Invalid repo (expected owner/repo): ${bad.slice(0, 40)}`);
+  const unique = repos.filter((r, i) => repos.findIndex((o) => o.toLowerCase() === r.toLowerCase()) === i);
+  setSetting(db, 'githubExcludedRepos', JSON.stringify(unique));
+  console.log(`[connect] github excluded repos set (${unique.length})`);
+  return connectStatus(db, deps);
+}
+
 export function disconnectGithub(db: Db, deps: ConnectDeps): ConnectStatus {
   deps.keychain.delete('github-token');
-  for (const key of ['githubSource', 'githubLogin', 'githubOrgs']) deleteSetting(db, key);
+  for (const key of ['githubSource', 'githubLogin', 'githubOrgs', 'githubExcludedRepos']) deleteSetting(db, key);
   delete failureOf(db).github;
   console.log('[connect] github disconnected');
   return connectStatus(db, deps);

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { cardState, runCardMutation, type CardState } from '../lib/connect';
+import { cardState, parseRepoList, runCardMutation, type CardState } from '../lib/connect';
 import { timeAgo } from '../lib/format';
 import { uiEvent } from '../lib/telemetry';
 import { Loading, btnPrimary, btnSecondary, inputCls, pageTitle, surface } from '../components/ui';
@@ -41,6 +41,7 @@ export function ConnectView() {
   const status = useQuery({ queryKey: ['reef', 'connect'], queryFn: api.connect.status });
   const [token, setToken] = useState('');
   const [orgsText, setOrgsText] = useState<string | null>(null);
+  const [excludedText, setExcludedText] = useState<string | null>(null);
   const [baseUrl, setBaseUrl] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [apiToken, setApiToken] = useState('');
@@ -52,11 +53,12 @@ export function ConnectView() {
     onSuccess: () => { setToken(''); done(); },
   });
   const saveOrgs = useMutation({ mutationFn: api.connect.saveGithubOrgs, onSuccess: () => { setOrgsText(null); done(); } });
+  const saveExcluded = useMutation({ mutationFn: api.connect.saveGithubExcludedRepos, onSuccess: () => { setExcludedText(null); done(); } });
   const dropGh = useMutation({ mutationFn: api.connect.disconnectGithub, onSuccess: done });
   const saveJira = useMutation({ mutationFn: api.connect.saveJira, onSuccess: () => { setApiToken(''); done(); } });
   const dropJira = useMutation({ mutationFn: api.connect.disconnectJira, onSuccess: done });
 
-  const ghGroup = [saveGh, saveOrgs, dropGh];
+  const ghGroup = [saveGh, saveOrgs, saveExcluded, dropGh];
   const jiraGroup = [saveJira, dropJira];
 
   if (status.isLoading) return <Loading />;
@@ -65,6 +67,7 @@ export function ConnectView() {
 
   const actionError = (m: { error: unknown }) => (m.error instanceof Error ? m.error.message : null);
   const orgs = orgsText ?? github.orgs.join(', ');
+  const excluded = excludedText ?? github.excludedRepos.join(', ');
   const jiraUrl = baseUrl ?? jira.baseUrl ?? '';
   const jiraEmail = email ?? jira.email ?? '';
 
@@ -100,7 +103,7 @@ export function ConnectView() {
         blurb="Adds visitors for your merged pull requests and shows your open ones in fullscreen."
         state={cardState(github)}
         pill={github.connected && !github.error && github.login ? `Connected as ${github.login}` : undefined}
-        error={github.error ?? actionError(saveGh) ?? actionError(saveOrgs) ?? actionError(dropGh)}
+        error={github.error ?? actionError(saveGh) ?? actionError(saveOrgs) ?? actionError(saveExcluded) ?? actionError(dropGh)}
       >
         <div className="flex flex-wrap items-end gap-2">
           <button
@@ -141,6 +144,23 @@ export function ConnectView() {
             }}
           >
             Save orgs
+          </button>
+        </div>
+        <div className="flex items-end gap-2">
+          <label className="min-w-0 flex-1">
+            <span className={labelCls}>Hide repos</span>
+            <input value={excluded} onChange={(e) => setExcludedText(e.target.value)} className={`${inputCls} mt-1 w-full px-2 py-1.5 text-sm`} />
+            <span className="mt-1 block text-xs text-zinc-500">Comma-separated owner/repo, e.g. acme/old-service</span>
+          </label>
+          <button
+            className={`${btnSecondary} px-3 py-1.5 text-sm`}
+            disabled={excludedText === null || saveExcluded.isPending}
+            onClick={() => {
+              uiEvent('connect.github.excludedRepos');
+              runCardMutation(saveExcluded, ghGroup, parseRepoList(excluded));
+            }}
+          >
+            Save hidden repos
           </button>
         </div>
         {github.source && (

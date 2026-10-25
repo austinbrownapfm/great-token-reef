@@ -8,6 +8,8 @@ export function cardState(s: ConnectStatus['github' | 'jira' | 'claude']): CardS
   return s.connected ? 'connected' : 'not-connected';
 }
 
+export const parseRepoList = (text: string): string[] => text.split(',').map((r) => r.trim()).filter(Boolean);
+
 export interface ResettableMutation<V> {
   reset(): void;
   mutate(vars: V, options?: { onSuccess?: () => void }): void;
