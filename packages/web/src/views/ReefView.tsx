@@ -19,7 +19,7 @@ import {
   type ReefSummary,
 } from '../lib/api';
 import { compactNumber, formatDate, formatDateTime, timeAgo } from '../lib/format';
-import { legendarySlot, previewLegendary } from '../lib/legendaryRows';
+import { legendaryProgress, legendarySlot, previewLegendary } from '../lib/legendaryRows';
 import { RARITY_PILL } from '../lib/rarity';
 import { officialFresh } from '../lib/reefQuota';
 import { NO_HELD_REWARDS, speciesSetOf, visibleRewards } from '../lib/tankDecor';
@@ -90,7 +90,7 @@ export function ReefView() {
         ))}
       </div>
       <div className="mt-5">
-        {tab === 'collection' && <Collection highlight={highlight} held={heldRewards} />}
+        {tab === 'collection' && <Collection highlight={highlight} held={heldRewards} ladderTokens={summary.data?.rewards.tokens} />}
         {tab === 'inventory' && <ReefInventory held={heldRewards} />}
         {tab === 'models' && <ModelsTable agent={agent} />}
         {tab === 'projects' && <ProjectsTable agent={agent} />}
@@ -586,7 +586,7 @@ type RarityFilter = (typeof RARITY_FILTERS)[number];
 
 const todayLocal = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local tz
 
-function Collection({ highlight, held }: { highlight?: number; held: ReadonlySet<string> }) {
+function Collection({ highlight, held, ladderTokens }: { highlight?: number; held: ReadonlySet<string>; ladderTokens?: number }) {
   const { reefLegends } = useSearch({ strict: false }) as { reefLegends?: 'preview' };
   const [date, setDate] = useState<'all' | string>('all');
   const [rarity, setRarity] = useState<RarityFilter>('all');
@@ -678,7 +678,7 @@ function Collection({ highlight, held }: { highlight?: number; held: ReadonlySet
       {date === 'all' ? (
         !col ? null : (
           <>
-            {rarity === 'all' && <LegendaryStrip catches={reefLegends === 'preview' ? previewLegendary() : col.legendary} />}
+            {rarity === 'all' && <LegendaryStrip catches={reefLegends === 'preview' ? previewLegendary() : col.legendary} ladderTokens={ladderTokens} />}
             {speciesShown.length === 0 ? (
               <Empty>
                 {rarity === 'all' ? 'Nothing caught yet. Go burn some tokens.' : `No ${rarity} species caught yet.`}
@@ -757,10 +757,35 @@ function Collection({ highlight, held }: { highlight?: number; held: ReadonlySet
 type LegendaryCatch = ReefCollection['legendary'][number];
 
 // Twelve slots in ladder order, each showing only the highest tier reached; an unearned one is a dark silhouette with its token threshold.
-function LegendaryStrip({ catches }: { catches: LegendaryCatch[] }) {
+function LegendaryStrip({ catches, ladderTokens }: { catches: LegendaryCatch[]; ladderTokens?: number }) {
+  const progress = ladderTokens === undefined ? null : legendaryProgress(ladderTokens);
   return (
     <div className="mt-3 rounded-lg border border-orange-200 bg-orange-50 p-3 dark:border-orange-900 dark:bg-orange-950/30">
       <div className="text-[10px] uppercase tracking-wide text-zinc-400">Legendaries · thresholds are tokens since install</div>
+      {progress && ladderTokens !== undefined && (
+        <div className="mt-2" data-legend-progress>
+          <div className="flex items-baseline justify-between gap-3 text-xs">
+            <span>
+              <span className="font-semibold">{compactNumber(ladderTokens)}</span>
+              <span className="text-zinc-400"> tokens</span>
+            </span>
+            <span className="text-zinc-500">
+              {progress.next
+                ? <>next: {progress.next.shiny ? '✨ ' : ''}{LEGENDARY_DEFS[progress.next.index]!.name} at {compactNumber(progress.next.threshold)}</>
+                : 'every legendary caught'}
+            </span>
+          </div>
+          <div
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(progress.pct)}
+            className="mt-1 h-2 overflow-hidden rounded-full bg-orange-200/60 dark:bg-orange-900/50"
+          >
+            <div className="h-full rounded-full bg-amber-400" style={{ width: `${progress.pct}%` }} />
+          </div>
+        </div>
+      )}
       <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {LEGENDARY_DEFS.map((d, i) => {
           const { shiny, caught, next } = legendarySlot(catches, i);
