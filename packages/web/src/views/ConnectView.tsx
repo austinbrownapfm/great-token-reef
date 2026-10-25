@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { cardState, type CardState } from '../lib/connect';
+import { cardState, runCardMutation, type CardState } from '../lib/connect';
 import { timeAgo } from '../lib/format';
 import { uiEvent } from '../lib/telemetry';
 import { Loading, btnPrimary, btnSecondary, inputCls, pageTitle, surface } from '../components/ui';
@@ -56,6 +56,9 @@ export function ConnectView() {
   const saveJira = useMutation({ mutationFn: api.connect.saveJira, onSuccess: () => { setApiToken(''); done(); } });
   const dropJira = useMutation({ mutationFn: api.connect.disconnectJira, onSuccess: done });
 
+  const ghGroup = [saveGh, saveOrgs, dropGh];
+  const jiraGroup = [saveJira, dropJira];
+
   if (status.isLoading) return <Loading />;
   if (!status.data) return <p className="p-10 text-center text-sm text-red-600">Could not load connections.</p>;
   const { claude, github, jira } = status.data;
@@ -83,7 +86,7 @@ export function ConnectView() {
           <button
             className={`${btnSecondary} px-3 py-1.5 text-sm`}
             disabled={!claude.detected || syncLimits.isPending}
-            onClick={() => { uiEvent('reef.limits.sync'); syncLimits.mutate(); }}
+            onClick={() => { uiEvent('reef.limits.sync'); runCardMutation(syncLimits, [syncLimits], undefined); }}
           >
             {syncLimits.isPending ? 'Syncing…' : 'Sync limits'}
           </button>
@@ -103,7 +106,7 @@ export function ConnectView() {
           <button
             className={`${btnPrimary} px-3 py-1.5 text-sm`}
             disabled={saveGh.isPending}
-            onClick={() => { uiEvent('connect.github.save', 'gh'); saveGh.mutate({ source: 'gh' }); }}
+            onClick={() => { uiEvent('connect.github.save', 'gh'); runCardMutation(saveGh, ghGroup, { source: 'gh' }); }}
           >
             Use gh CLI
           </button>
@@ -119,7 +122,7 @@ export function ConnectView() {
           <button
             className={`${btnSecondary} px-3 py-1.5 text-sm`}
             disabled={!token.trim() || saveGh.isPending}
-            onClick={() => { uiEvent('connect.github.save', 'token'); saveGh.mutate({ source: 'token', token: token.trim() }); }}
+            onClick={() => { uiEvent('connect.github.save', 'token'); runCardMutation(saveGh, ghGroup, { source: 'token', token: token.trim() }); }}
           >
             Save
           </button>
@@ -134,7 +137,7 @@ export function ConnectView() {
             disabled={orgsText === null || saveOrgs.isPending}
             onClick={() => {
               uiEvent('connect.github.orgs');
-              saveOrgs.mutate(orgs.split(',').map((o) => o.trim()).filter(Boolean));
+              runCardMutation(saveOrgs, ghGroup, orgs.split(',').map((o) => o.trim()).filter(Boolean));
             }}
           >
             Save orgs
@@ -144,7 +147,7 @@ export function ConnectView() {
           <button
             className="text-sm text-red-600 hover:underline disabled:opacity-40 dark:text-red-400"
             disabled={dropGh.isPending}
-            onClick={() => { uiEvent('connect.github.disconnect'); dropGh.mutate(); }}
+            onClick={() => { uiEvent('connect.github.disconnect'); runCardMutation(dropGh, ghGroup, undefined); }}
           >
             Disconnect
           </button>
@@ -179,7 +182,7 @@ export function ConnectView() {
             disabled={!jiraUrl.trim() || !jiraEmail.trim() || !apiToken.trim() || saveJira.isPending}
             onClick={() => {
               uiEvent('connect.jira.save');
-              saveJira.mutate({ baseUrl: jiraUrl.trim(), email: jiraEmail.trim(), apiToken: apiToken.trim() });
+              runCardMutation(saveJira, jiraGroup, { baseUrl: jiraUrl.trim(), email: jiraEmail.trim(), apiToken: apiToken.trim() });
             }}
           >
             Save
@@ -188,7 +191,7 @@ export function ConnectView() {
             <button
               className="text-sm text-red-600 hover:underline disabled:opacity-40 dark:text-red-400"
               disabled={dropJira.isPending}
-              onClick={() => { uiEvent('connect.jira.disconnect'); dropJira.mutate(); }}
+              onClick={() => { uiEvent('connect.jira.disconnect'); runCardMutation(dropJira, jiraGroup, undefined); }}
             >
               Disconnect
             </button>
