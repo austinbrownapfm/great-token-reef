@@ -6,7 +6,6 @@ import {
   LEGENDARY_DEFS,
   LEGENDARY_ID_BASE,
   catchesEarned,
-  legendaryThreshold,
   milestoneAt,
   nextLegendary,
   speciesRarity,
@@ -20,7 +19,7 @@ import {
   type ReefSummary,
 } from '../lib/api';
 import { compactNumber, formatDate, formatDateTime, timeAgo } from '../lib/format';
-import { previewLegendary } from '../lib/legendaryRows';
+import { legendarySlot, previewLegendary } from '../lib/legendaryRows';
 import { RARITY_PILL } from '../lib/rarity';
 import { officialFresh } from '../lib/reefQuota';
 import { NO_HELD_REWARDS, speciesSetOf, visibleRewards } from '../lib/tankDecor';
@@ -757,46 +756,33 @@ function Collection({ highlight, held }: { highlight?: number; held: ReadonlySet
 
 type LegendaryCatch = ReefCollection['legendary'][number];
 
-// Twelve slots in ladder order, each with a regular and a shiny state; an unearned one is a dark silhouette with its token threshold.
+// Twelve slots in ladder order, each showing only the highest tier reached; an unearned one is a dark silhouette with its token threshold.
 function LegendaryStrip({ catches }: { catches: LegendaryCatch[] }) {
-  const find = (i: number, shiny: boolean) => catches.find((c) => c.species === LEGENDARY_ID_BASE + i && !!c.shiny === shiny);
   return (
     <div className="mt-3 rounded-lg border border-orange-200 bg-orange-50 p-3 dark:border-orange-900 dark:bg-orange-950/30">
       <div className="text-[10px] uppercase tracking-wide text-zinc-400">Legendaries · thresholds are tokens since install</div>
       <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {LEGENDARY_DEFS.map((d, i) => (
-          <div key={d.name} className="rounded-md border border-orange-200/70 p-2 text-center dark:border-orange-900/70">
-            <div className="text-xs font-medium">{d.name}</div>
-            <div className="mt-1 grid grid-cols-2 gap-1">
-              {[false, true].map((shiny) => {
-                const c = find(i, shiny);
-                return (
-                  <div key={String(shiny)} data-legend-slot={`${i}-${shiny ? 1 : 0}`}>
-                    <Fish
-                      species={LEGENDARY_ID_BASE + i}
-                      shiny={shiny}
-                      title={c ? `${d.name}${shiny ? ' (shiny)' : ''}` : `Not caught yet: ${compactNumber(legendaryThreshold(i, shiny))} tokens since install`}
-                      className={`mx-auto h-12 w-full [&>svg]:h-full [&>svg]:w-full ${c ? '' : 'opacity-70 brightness-0'} ${c && shiny ? 'reef-shiny' : ''}`}
-                    />
-                    <div className="mt-0.5 text-[10px] text-zinc-400">
-                      {c ? (
-                        <>
-                          {shiny ? '✨ ' : ''}
-                          {formatDateTime(c.caught_at)}
-                        </>
-                      ) : (
-                        <>
-                          {shiny ? '✨ ' : ''}
-                          {compactNumber(legendaryThreshold(i, shiny))}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+        {LEGENDARY_DEFS.map((d, i) => {
+          const { shiny, caught, next } = legendarySlot(catches, i);
+          return (
+            <div key={d.name} data-legend-slot={i} className="rounded-md border border-orange-200/70 p-2 text-center dark:border-orange-900/70">
+              <div className="text-xs font-medium">
+                {shiny ? '✨ ' : ''}
+                {d.name}
+              </div>
+              <Fish
+                species={LEGENDARY_ID_BASE + i}
+                shiny={shiny}
+                title={caught ? `${d.name}${shiny ? ' (shiny)' : ''}` : `Not caught yet: ${compactNumber(next ?? 0)} tokens since install`}
+                className={`mx-auto mt-1 h-12 w-full [&>svg]:h-full [&>svg]:w-full ${caught ? '' : 'opacity-70 brightness-0'} ${shiny ? 'reef-shiny' : ''}`}
+              />
+              <div className="mt-0.5 text-[10px] text-zinc-400">
+                {caught ? formatDateTime(caught.caught_at) : compactNumber(next ?? 0)}
+              </div>
+              {caught && next !== null && <div className="text-[10px] text-zinc-400">✨ shiny at {compactNumber(next)}</div>}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
