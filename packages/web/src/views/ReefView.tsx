@@ -442,7 +442,7 @@ function TrendChart({ agent }: { agent: ReefAgent }) {
       {trend.isPending ? (
         <Loading />
       ) : dayKeys.length === 0 ? (
-        <Empty>No usage yet — the scanner runs every 5 minutes.</Empty>
+        <Empty>No usage yet — the scanner checks every minute.</Empty>
       ) : (
         <div className="mt-2 flex h-36 items-end gap-[2px]">
           {dayKeys.map((day) => {

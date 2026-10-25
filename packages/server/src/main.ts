@@ -51,7 +51,7 @@ await startServer({
 });
 
 // Scans start only once the port is bound: the first pass reads all history.
-reefScanner.start(5 * 60 * 1000);
+reefScanner.start(60_000);
 codexScanner.start(60_000);
 visitorSyncer.start(5 * 60_000);
 
