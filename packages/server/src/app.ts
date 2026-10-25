@@ -25,13 +25,20 @@ export interface AppDeps {
 
 export function createApp(deps: AppDeps): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
-  app.use(logger());
+  app.use(logger((m) => console.log(`[server] ${m}`)));
   app.use(async (c, next) => {
     c.set('db', deps.db);
     c.set('bus', deps.bus);
     c.set('reefScanner', deps.reefScanner);
     c.set('codexScanner', deps.codexScanner);
     c.set('connect', deps.connect);
+    await next();
+  });
+  // A cross-site form can only send simple content types, so requiring JSON blocks it.
+  app.use('/api/*', async (c, next) => {
+    if (c.req.method !== 'GET' && c.req.method !== 'HEAD' && !(c.req.header('content-type') ?? '').startsWith('application/json')) {
+      return c.json({ error: 'Content-Type must be application/json' }, 415);
+    }
     await next();
   });
   app.use('/api/*', restTelemetry(deps.db));

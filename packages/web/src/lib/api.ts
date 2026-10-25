@@ -16,7 +16,8 @@ async function get<T>(path: string, params?: Record<string, string | number | bo
 async function send<T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, {
     method,
-    headers: body !== undefined ? { 'content-type': 'application/json' } : undefined,
+    // The server requires JSON on every mutation, bodyless ones included.
+    headers: { 'content-type': 'application/json' },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {

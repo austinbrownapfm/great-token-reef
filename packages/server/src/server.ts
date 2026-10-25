@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { createReadStream, realpathSync, statSync } from 'node:fs';
 import { extname, resolve, sep } from 'node:path';
 import { getRequestListener } from '@hono/node-server';
@@ -116,6 +117,12 @@ export async function startServer(opts: StartServerOptions): Promise<Server> {
 
   let web: (req: IncomingMessage, res: ServerResponse) => void;
   const server = createServer((req, res) => {
+    // A forged Host is a DNS-rebinding page talking to us; only our own origins get an answer.
+    const { port } = server.address() as AddressInfo;
+    if (req.headers.host !== `127.0.0.1:${port}` && req.headers.host !== `localhost:${port}`) {
+      res.writeHead(403, { 'content-type': 'text/plain' }).end('forbidden host');
+      return;
+    }
     if ((req.url ?? '').startsWith('/api/')) return void api(req, res);
     web(req, res);
   });

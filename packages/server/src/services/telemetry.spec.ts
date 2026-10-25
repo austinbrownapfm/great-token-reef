@@ -26,12 +26,13 @@ describe('telemetry', () => {
     ]);
   });
 
+  const json = { 'content-type': 'application/json' };
   it('POST /api/events/ui records a ui event and rejects bad bodies', async () => {
     const db = freshDb();
     const app = createApp({ db, bus: new Bus(), reefScanner: new ReefScanner({ db, dir: '/nonexistent' }), codexScanner: new CodexUsageScanner({ db, roots: [] }), connect: fakeConnectDeps() });
-    const ok = await app.request('/api/events/ui', { method: 'POST', body: JSON.stringify({ name: 'reef.view' }) });
+    const ok = await app.request('/api/events/ui', { method: 'POST', headers: json, body: JSON.stringify({ name: 'reef.view' }) });
     expect(ok.status).toBe(200);
-    const bad = await app.request('/api/events/ui', { method: 'POST', body: '{}' });
+    const bad = await app.request('/api/events/ui', { method: 'POST', headers: json, body: '{}' });
     expect(bad.status).toBe(400);
     expect(count(db, 'ui')).toBe(1);
     expect(count(db, 'rest')).toBe(0);
