@@ -313,9 +313,10 @@ function awardCatches(db: Db, sessions: Set<string>): number {
 
   for (const sessionId of sessions) {
     const rows = db.prepare(
-      `SELECT ts, project, ${TOK} AS total FROM cc_usage
+      `SELECT ts, project, agent, ${TOK} AS total FROM cc_usage
        WHERE session_id = ? AND (agent = 'claude' OR ts >= ?) ORDER BY ts, request_id`,
-    ).all(sessionId, readCodexRewardEpoch(db)) as { ts: number; project: string; total: number }[];
+    ).all(sessionId, readCodexRewardEpoch(db)) as { ts: number; project: string; agent: string; total: number }[];
+    const tag = rows[0]?.agent === 'codex' ? '[codex]' : '[reef]';
     let cum = 0;
     let idx = 0;
     for (const row of rows) {
@@ -341,7 +342,7 @@ function awardCatches(db: Db, sessions: Set<string>): number {
           }
           if (inserted) {
             awarded++;
-            console.log(`[reef] 🎣 caught ${fish.shiny ? '✨SHINY ' : ''}${fish.name} (${fish.rarity}, ${fish.size}cm) at depth ${milestoneAt(idx) / 1e6}M — session ${sessionId.slice(0, 8)}`);
+            console.log(`${tag} 🎣 caught ${fish.shiny ? '✨SHINY ' : ''}${fish.name} (${fish.rarity}, ${fish.size}cm) at depth ${milestoneAt(idx) / 1e6}M — session ${sessionId.slice(0, 8)}`);
           }
         }
         idx++;
@@ -349,7 +350,7 @@ function awardCatches(db: Db, sessions: Set<string>): number {
     }
     // Consistency check against the shared helper (cheap, catches drift).
     if (idx !== catchesEarned(cum)) {
-      console.warn(`[reef] catch count drift for ${sessionId}: walked ${idx}, formula ${catchesEarned(cum)}`);
+      console.warn(`${tag} catch count drift for ${sessionId}: walked ${idx}, formula ${catchesEarned(cum)}`);
     }
   }
 

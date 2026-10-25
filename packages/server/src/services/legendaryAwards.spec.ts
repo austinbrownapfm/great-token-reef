@@ -149,3 +149,14 @@ describe('legendary ladder', () => {
     expect(checkSetCompletions(db, NOW)).toBe(before);
   });
 });
+
+describe('catch log prefix', () => {
+  it('logs Codex catches with [codex] and Claude catches with [reef]', () => {
+    const db = freshDb();
+    const log = vi.mocked(console.log);
+    codexUsage(db, 'cx', 2_000_000, NOW - 600);
+    expect(log.mock.calls.some((c) => String(c[0]).startsWith('[codex] 🎣 caught'))).toBe(true);
+    claudeUsage(db, 'cl', 2_000_000, NOW - 600);
+    expect(log.mock.calls.some((c) => String(c[0]).startsWith('[reef] 🎣 caught'))).toBe(true);
+  });
+});
