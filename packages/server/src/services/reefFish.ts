@@ -43,3 +43,37 @@ export function setReefFishPick(db: Db, view: FishView, species: number[]): numb
   console.log(`[reef] fish pick ${view} (${species.length})`);
   return species;
 }
+
+/** Appends first-ever species released between the marks to each non-null pick with room. */
+export function autoAddReleased(db: Db, previousMark: number, releasedId: number): { strip: number[]; full: number[] } {
+  const added: { strip: number[]; full: number[] } = { strip: [], full: [] };
+  const fresh = (db.prepare(
+    `SELECT species FROM cc_catches c WHERE id > ? AND id <= ?
+       AND NOT EXISTS (SELECT 1 FROM cc_catches o WHERE o.species = c.species AND o.id <= ?)
+     ORDER BY id`,
+  ).all(previousMark, releasedId, previousMark) as { species: number }[]).map((r) => r.species);
+  const species = [...new Set(fresh)];
+  if (species.length === 0) return added;
+  for (const view of ['strip', 'full'] as const) {
+    let pick: number[] | null;
+    try {
+      pick = read(db, view);
+    } catch (err) {
+      console.error(`[reef] auto-add skipped for ${view} tank: ${(err as Error).message}`);
+      continue;
+    }
+    if (pick === null) continue;
+    const next = [...pick];
+    for (const s of species) {
+      if (next.length >= FISH_CAPS[view]) break;
+      if (!next.includes(s)) {
+        next.push(s);
+        added[view].push(s);
+      }
+    }
+    if (added[view].length === 0) continue;
+    setSetting(db, KEYS[view], JSON.stringify(next));
+    console.log(`[reef] auto-added ${added[view].length} fish to ${view} tank`);
+  }
+  return added;
+}
