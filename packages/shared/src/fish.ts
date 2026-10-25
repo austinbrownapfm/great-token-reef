@@ -214,7 +214,7 @@ export function fishSvg(species: number, shiny: boolean, idPrefix: string): stri
 
 // ---------------------------------------------------------------------------
 // Depth milestones. Calibrated 2026-08-18: a LIGHT day is ~22M total
-// tokens (cache included — PokeTokenBar counts the same way), so the ladder
+// tokens (cache included), so the ladder
 // starts at 2M and quadruples: 2M, 8M, 32M, 128M, 512M, … A normal session
 // lands 1–2 catches; the abyss tier is a genuine event.
 

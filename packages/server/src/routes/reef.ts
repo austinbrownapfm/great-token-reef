@@ -121,8 +121,8 @@ export const reef = new Hono<AppEnv>()
       catches: claudeResult.catches + codexResult.catches,
     });
   })
-  // Official plan limits via Claude Code's own OAuth token (PokeTokenBar's
-  // trick). Manual refresh only — undocumented endpoint, never polled.
+  // Official plan limits via Claude Code's own OAuth token.
+  // Manual refresh only — undocumented endpoint, never polled.
   .post('/limits/refresh', async (c) => {
     try {
       return c.json(await refreshOfficialLimits(c.get('db')));

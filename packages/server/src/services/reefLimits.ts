@@ -5,8 +5,7 @@ import { join } from 'node:path';
 import type { Db } from '../store/db.ts';
 import { getSetting } from './settings.ts';
 
-// Official plan limits for the Reef gauges — the same trick PokeTokenBar
-// uses (Sources/PokeTokenBar/Core/OAuthLimitsProvider.swift): read Claude
+// Official plan limits for the Reef gauges: read Claude
 // Code's own OAuth access token and ask Anthropic's oauth usage endpoint for
 // the REAL 5h/7d window utilization + reset times, instead of estimating
 // budgets from observed peaks. Manual refresh only (button on /reef) — the
