@@ -1,7 +1,9 @@
 import { assertNodeVersion } from './nodeCheck.ts';
+import { parsePort } from './portCheck.ts';
 
 try {
   assertNodeVersion();
+  parsePort(process.env.GTR_PORT);
 } catch (err) {
   console.error(`[server] ${(err as Error).message}`);
   process.exit(1);
