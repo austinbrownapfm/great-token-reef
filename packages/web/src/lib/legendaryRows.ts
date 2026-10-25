@@ -1,4 +1,4 @@
-import { LEGENDARY_DEFS, LEGENDARY_ID_BASE, legendaryThreshold } from '@gtr/shared';
+import { LEGENDARY_DEFS, LEGENDARY_ID_BASE, legendaryAwards, legendaryThreshold, nextLegendary, type LegendaryAward } from '@gtr/shared';
 import type { ReefCollection, ReefSpeciesRow } from './api';
 
 type LegendaryCatch = ReefCollection['legendary'][number];
@@ -49,4 +49,12 @@ export function legendarySlot(catches: LegendaryCatch[], index: number): { shiny
   if (shiny) return { shiny: true, caught: shiny, next: null };
   const regular = mine.find((c) => !c.shiny);
   return { shiny: false, caught: regular, next: legendaryThreshold(index, !!regular) };
+}
+
+/** Where the ladder stands: from the last threshold passed to the next award, as a percentage. */
+export function legendaryProgress(ladderTokens: number): { from: number; next: LegendaryAward | null; pct: number } {
+  const from = legendaryAwards(ladderTokens).at(-1)?.threshold ?? 0;
+  const next = nextLegendary(ladderTokens);
+  if (!next) return { from, next: null, pct: 100 };
+  return { from, next, pct: Math.min(100, Math.max(0, ((ladderTokens - from) / (next.threshold - from)) * 100)) };
 }

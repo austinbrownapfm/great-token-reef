@@ -3,7 +3,7 @@ import { LEGENDARY_DEFS, LEGENDARY_ID_BASE } from '@gtr/shared';
 import type { ReefCollection } from './api';
 import { searchFish } from './reefFishPicker';
 import { maskCollection } from './tankRelease';
-import { allSpecies, legendaryRows, legendarySlot, previewLegendary } from './legendaryRows';
+import { allSpecies, legendaryProgress, legendaryRows, legendarySlot, previewLegendary } from './legendaryRows';
 
 const l = (species: number, shiny: number, caught_at: number, project = '/p/a'): ReefCollection['legendary'][number] =>
   ({ species, name: `L${species}`, shiny, size: 0, caught_at, depth_tokens: 1, project });
@@ -62,5 +62,20 @@ describe('legendarySlot', () => {
     const reg = row(1, false, 1);
     const shiny = row(1, true, 2);
     expect(legendarySlot([reg, shiny], 1)).toEqual({ shiny: true, caught: shiny, next: null });
+  });
+});
+
+describe('legendaryProgress', () => {
+  it('runs from zero to the Tiger Shark before any legendary', () => {
+    expect(legendaryProgress(25_000_000)).toMatchObject({ from: 0, next: { index: 0, shiny: false, threshold: 100_000_000 }, pct: 25 });
+  });
+
+  it('runs from the last threshold passed to the next one', () => {
+    // 100M passed; next is 200M (regular Leatherback before shiny Tiger Shark)
+    expect(legendaryProgress(150_000_000)).toMatchObject({ from: 100_000_000, next: { index: 1, shiny: false, threshold: 200_000_000 }, pct: 50 });
+  });
+
+  it('is complete after the shiny Giant Squid', () => {
+    expect(legendaryProgress(500_000_000_000)).toEqual({ from: 409_600_000_000, next: null, pct: 100 });
   });
 });
