@@ -36,27 +36,29 @@ const readable = (err: unknown, secret?: string) => {
   return secret ? message.split(secret).join('***') : message;
 };
 
-export function parseOrgs(raw: string | null): string[] {
+function parseFilterList(raw: string | null, key: string, valid: RegExp): string[] {
   if (raw === null) return [];
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((o): o is string => typeof o === 'string') : [];
+    parsed = JSON.parse(raw);
   } catch {
-    console.warn('[connect] stored githubOrgs is not valid JSON; treating as empty');
+    console.warn(`[connect] stored ${key} is not valid JSON; treating as empty`);
     return [];
   }
+  if (!Array.isArray(parsed)) return [];
+  const seen = new Set<string>();
+  const kept = parsed.filter((e): e is string => {
+    if (typeof e !== 'string' || !valid.test(e) || seen.has(e.toLowerCase())) return false;
+    seen.add(e.toLowerCase());
+    return true;
+  });
+  if (kept.length < parsed.length) console.warn(`[connect] stored ${key}: dropped ${parsed.length - kept.length} invalid or duplicate entries`);
+  return kept;
 }
 
-export function parseExcludedRepos(raw: string | null): string[] {
-  if (raw === null) return [];
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((r): r is string => typeof r === 'string') : [];
-  } catch {
-    console.warn('[connect] stored githubExcludedRepos is not valid JSON; treating as empty');
-    return [];
-  }
-}
+export const parseOrgs = (raw: string | null): string[] => parseFilterList(raw, 'githubOrgs', ORG);
+
+export const parseExcludedRepos = (raw: string | null): string[] => parseFilterList(raw, 'githubExcludedRepos', REPO);
 
 export function connectStatus(db: Db, deps: ConnectDeps): ConnectStatus {
   const source = getSetting(db, 'githubSource');
@@ -125,8 +127,9 @@ export function setGithubOrgs(db: Db, deps: ConnectDeps, orgs: string[]): Connec
 export function setGithubExcludedRepos(db: Db, deps: ConnectDeps, repos: string[]): ConnectStatus {
   const bad = repos.find((repo) => !REPO.test(repo));
   if (bad !== undefined) throw new Error(`Invalid repo (expected owner/repo): ${bad.slice(0, 40)}`);
-  setSetting(db, 'githubExcludedRepos', JSON.stringify([...new Set(repos)]));
-  console.log(`[connect] github excluded repos set (${repos.length})`);
+  const unique = repos.filter((r, i) => repos.findIndex((o) => o.toLowerCase() === r.toLowerCase()) === i);
+  setSetting(db, 'githubExcludedRepos', JSON.stringify(unique));
+  console.log(`[connect] github excluded repos set (${unique.length})`);
   return connectStatus(db, deps);
 }
 

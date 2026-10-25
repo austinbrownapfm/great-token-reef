@@ -5,6 +5,8 @@ import {
   connectStatus,
   disconnectGithub,
   disconnectJira,
+  parseExcludedRepos,
+  parseOrgs,
   setGithubExcludedRepos,
   setGithubOrgs,
 } from './connect.ts';
@@ -100,6 +102,38 @@ describe('setGithubExcludedRepos', () => {
   it('dedupes', () => {
     const db = fixtureDb();
     expect(setGithubExcludedRepos(db, fakeConnectDeps(), ['a/b', 'a/b']).github.excludedRepos).toEqual(['a/b']);
+  });
+});
+
+describe('stored GitHub filters are validated on read', () => {
+  it('drops bad entries, dedupes case-insensitively, warns once with the count', () => {
+    const warn = vi.mocked(console.warn);
+    warn.mockClear();
+    expect(parseExcludedRepos('["a/b org:other","","Acme/X","acme/x",7,"ok/y"]')).toEqual(['Acme/X', 'ok/y']);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]![0]).toContain('[connect]');
+    expect(parseOrgs('["bad org","","Echo","echo","x"]')).toEqual(['Echo', 'x']);
+  });
+
+  it('malformed JSON is empty', () => {
+    expect(parseExcludedRepos('{nope')).toEqual([]);
+    expect(parseOrgs('{nope')).toEqual([]);
+  });
+
+  it('connectStatus shows only valid entries', () => {
+    const db = fixtureDb();
+    setSetting(db, 'githubExcludedRepos', '["a/b org:other","good/repo"]');
+    setSetting(db, 'githubOrgs', '["bad org","echo"]');
+    const gh = connectStatus(db, fakeConnectDeps()).github;
+    expect(gh.excludedRepos).toEqual(['good/repo']);
+    expect(gh.orgs).toEqual(['echo']);
+  });
+
+  it('save dedupes case-insensitively and logs the deduped count', () => {
+    const db = fixtureDb();
+    const log = vi.mocked(console.log);
+    expect(setGithubExcludedRepos(db, fakeConnectDeps(), ['a/b', 'A/B', 'c/d']).github.excludedRepos).toEqual(['a/b', 'c/d']);
+    expect(log).toHaveBeenCalledWith('[connect] github excluded repos set (2)');
   });
 });
 
