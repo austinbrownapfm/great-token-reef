@@ -24,13 +24,15 @@ const exitStatus = (err: unknown): number | null => {
 
 const describe = (err: unknown) => `exit ${exitStatus(err) ?? 'unknown'}`;
 
+// null only when the item does not exist; any other failure throws.
 export function keychainGet(account: KeychainAccount, exec: KeychainExec = defaultExec): string | null {
   try {
     const out = exec('security', ['find-generic-password', '-s', SERVICE, '-a', account, '-w'], OPTIONS);
     return String(out).replace(/\r?\n$/, '');
   } catch (err) {
+    if (exitStatus(err) === ITEM_NOT_FOUND) return null;
     console.warn(`[connect] keychain read failed for ${account} (${describe(err)})`);
-    return null;
+    throw new Error(`Could not read ${account} from the macOS Keychain (${describe(err)}). Check that Keychain access is allowed.`);
   }
 }
 

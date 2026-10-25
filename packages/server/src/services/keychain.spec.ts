@@ -50,9 +50,15 @@ describe('keychainGet', () => {
     expect(exec.mock.calls[0]![1]).toEqual(['find-generic-password', '-s', 'great-token-reef', '-a', 'github-token', '-w']);
   });
 
-  it('returns null and warns once when the item is missing or access is denied', () => {
+  it('returns null silently when the item is missing (exit 44)', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     expect(keychainGet('github-token', failing(44))).toBeNull();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('throws a readable error naming the account and warns once on any other failure', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    expect(() => keychainGet('github-token', failing(51))).toThrow(/github-token.*exit 51/);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0]![0])).toContain('[connect]');
   });
