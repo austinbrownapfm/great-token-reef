@@ -37,3 +37,9 @@ export function claudeQuota(
         : null;
   return { pct, resetIn: resetIn !== null && resetIn > 0 ? resetIn : null, source: useOfficial ? 'official' : 'measured' };
 }
+
+// Amber and red warn about real limits; an estimated budget is a guess, so it stays calm.
+export function gaugeColor(pct: number, estimated: boolean): string {
+  if (estimated) return 'bg-cyan-600';
+  return pct >= 0.9 ? 'bg-red-500' : pct >= 0.75 ? 'bg-amber-500' : 'bg-cyan-600';
+}

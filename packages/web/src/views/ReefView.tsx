@@ -21,7 +21,8 @@ import {
 import { compactNumber, formatDate, formatDateTime, timeAgo } from '../lib/format';
 import { legendaryProgress, legendarySlot, previewLegendary } from '../lib/legendaryRows';
 import { RARITY_PILL } from '../lib/rarity';
-import { officialFresh } from '../lib/reefQuota';
+import { codexVisible, displayAgent } from '../lib/reefAgents';
+import { gaugeColor, officialFresh } from '../lib/reefQuota';
 import { NO_HELD_REWARDS, speciesSetOf, visibleRewards } from '../lib/tankDecor';
 import { uiEvent } from '../lib/telemetry';
 import { Fish } from '../components/Fish';
@@ -47,9 +48,12 @@ type ReefTab = (typeof TABS)[number][0];
 export function ReefView() {
   useEffect(() => uiEvent('reef.view'), []);
   const navigate = useNavigate();
-  const { tab = 'collection', agent = 'all', species: highlight } = useSearch({ strict: false }) as {
+  const { tab = 'collection', agent: agentParam = 'all', species: highlight } = useSearch({ strict: false }) as {
     tab?: ReefTab; agent?: ReefAgent; species?: number;
   };
+  const codexStatus = useQuery({ queryKey: ['reef', 'codex-status'], queryFn: api.reef.codexStatus, refetchInterval: 60_000 });
+  const codexShown = codexVisible(codexStatus.data);
+  const agent = displayAgent(agentParam, codexShown);
   // The tank's running release holds set rewards until their unveil; the Dex and the Inventory hold them too.
   const [heldRewards, setHeldRewards] = useState<ReadonlySet<string>>(NO_HELD_REWARDS);
   const summary = useQuery({ queryKey: ['reef', 'summary', agent], queryFn: () => api.reef.summary(agent), refetchInterval: 60_000 });
@@ -62,7 +66,7 @@ export function ReefView() {
     <div className="mx-auto max-w-6xl p-6">
       <Header summary={summary.data} />
       <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="Usage agent">
-        {(['all', 'claude', 'codex'] as const).map((value) => (
+        {(codexShown ? ['all', 'claude', 'codex'] as const : ['all', 'claude'] as const).map((value) => (
           <button key={value} className={chip(agent === value)} aria-pressed={agent === value}
             onClick={() => { void navigate({ to: '/', search: { tab: tab === 'collection' ? undefined : tab, agent: value }, replace: true }); }}>
             {value === 'all' ? 'All' : value === 'claude' ? 'Claude' : 'Codex'}
@@ -70,7 +74,7 @@ export function ReefView() {
         ))}
         <span className="text-xs text-zinc-400">Usage filter · collection shared across agents</span>
       </div>
-      {agent !== 'claude' && <CodexTracking />}
+      {codexShown && agent !== 'claude' && <CodexTracking />}
       <Tank onHeldRewards={setHeldRewards} />
       {summary.isPending ? <Loading /> : summary.data && <Vitals s={summary.data} agent={agent} />}
       <TrendChart agent={agent} />
@@ -367,7 +371,7 @@ function GaugeCard({ title, tokens, budget, estimated, footer }: {
   title: string; tokens: number; budget: number | null; estimated: boolean; footer: string;
 }) {
   const pct = budget ? Math.min(1, tokens / budget) : 0;
-  const bar = pct >= 0.9 ? 'bg-red-500' : pct >= 0.75 ? 'bg-amber-500' : 'bg-cyan-600';
+  const bar = gaugeColor(pct, estimated);
   return (
     <Card title={title}>
       <div className="text-xl font-semibold">
@@ -383,7 +387,7 @@ function GaugeCard({ title, tokens, budget, estimated, footer }: {
       </div>
       <div className="mt-1 text-xs text-zinc-400">
         {footer}
-        {estimated && budget ? ' · *estimated from observed peaks' : ''}
+        {estimated && budget ? ' · *estimate from your busiest past window. Sync Claude limits for real numbers.' : ''}
       </div>
     </Card>
   );
@@ -681,7 +685,7 @@ function Collection({ highlight, held, ladderTokens }: { highlight?: number; hel
             {rarity === 'all' && <LegendaryStrip catches={reefLegends === 'preview' ? previewLegendary() : col.legendary} ladderTokens={ladderTokens} />}
             {speciesShown.length === 0 ? (
               <Empty>
-                {rarity === 'all' ? 'Nothing caught yet. Go burn some tokens.' : `No ${rarity} species caught yet.`}
+                {rarity === 'all' ? 'No fish yet. Fish come from sessions you run after installing The Great Token Reef. A session lands its first fish at 2M tokens. Your earlier history still counts in the stats above.' : `No ${rarity} species caught yet.`}
               </Empty>
             ) : (
               <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">

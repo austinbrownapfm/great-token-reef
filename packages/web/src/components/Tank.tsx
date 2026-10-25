@@ -16,6 +16,7 @@ import {
 import { fishKey, maskCollection, queueUnknown, releaseGates, releasedRows } from '../lib/tankRelease';
 import { uiEvent } from '../lib/telemetry';
 import { tankNotices } from '../lib/tankNotices';
+import { emptyTankMessage } from '../lib/tankLines';
 import { hold, puff as puffFish, type Bounds, type Swimmer, type SwimmerSpec } from '../lib/tankSim';
 import { Fish } from './Fish';
 import { PrHud, QuotaHud } from './ReefWidget';
@@ -181,6 +182,7 @@ export function Tank({ onHeldRewards }: {
   const hoveredRef = useRef<string | null>(null);
   const [plaque, setPlaque] = useState<string | null>(null);
   const { lines, jerking } = useTankLines();
+  const emptyMessage = emptyTankMessage({ waiting: release.waiting, activeLines: lines.length });
 
   // A fish is held while hovered or while its plaque is open.
   const applyHolds = useCallback(() => {
@@ -501,9 +503,9 @@ export function Tank({ onHeldRewards }: {
       <div className="reef-fog" />
       <div className="reef-tint" />
 
-      {roster.length === 0 && collection.data && !queueHeld && (pick !== null || picksFailed) && !release.releasing && (
+      {emptyMessage && roster.length === 0 && collection.data && !queueHeld && (pick !== null || picksFailed) && !release.releasing && (
         <div className="absolute inset-0 flex items-center justify-center text-sm text-white/70">
-          🎣 The tank is empty — fish arrive as sessions cross token depth milestones.
+          {emptyMessage}
         </div>
       )}
       {!plaque && !arranging && hoveredFish && hoveredSwimmer && (

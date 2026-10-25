@@ -64,3 +64,10 @@ export function catchJerks(prev: Map<string, number>, next: Map<string, number>)
   }
   return out;
 }
+
+// What the empty tank says, given what is already on its way.
+export function emptyTankMessage({ waiting, activeLines }: { waiting: number; activeLines: number }): string | null {
+  if (waiting > 0) return null;
+  if (activeLines > 0) return '🎣 Lines are in the water. A session lands its first fish at 2M tokens.';
+  return '🎣 No fish yet. Start a Claude Code or Codex session, and each one lands a fish at 2M tokens.';
+}

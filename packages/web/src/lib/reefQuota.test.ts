@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ReefSummary } from './api';
-import { claudeQuota, officialFresh } from './reefQuota';
+import { claudeQuota, gaugeColor, officialFresh } from './reefQuota';
 
 const NOW = 1_800_000_000;
 const iso = (sec: number) => new Date(sec * 1000).toISOString();
@@ -66,5 +66,17 @@ describe('officialFresh', () => {
 
   it('is false when fetchedAt is missing and resetsAt is null', () => {
     expect(officialFresh({ utilization: 10, resetsAt: null }, undefined, 5 * 3600, NOW)).toBe(false);
+  });
+});
+
+describe('gaugeColor', () => {
+  it('is cyan for any estimated budget', () => {
+    expect(gaugeColor(0.95, true)).toBe('bg-cyan-600');
+    expect(gaugeColor(0.8, true)).toBe('bg-cyan-600');
+  });
+  it('uses amber and red for real limits', () => {
+    expect(gaugeColor(0.5, false)).toBe('bg-cyan-600');
+    expect(gaugeColor(0.75, false)).toBe('bg-amber-500');
+    expect(gaugeColor(0.9, false)).toBe('bg-red-500');
   });
 });
