@@ -24,6 +24,7 @@ import {
   emitReefEvent, getReleasedEventId, moveEventMark, pendingEventCount, pendingEvents, visitorErrors, type ReefEventRow,
 } from './reefEvents.ts';
 import { checkSetCompletions } from './reefSets.ts';
+import { autoAddReleased } from './reefFish.ts';
 import { awardLegendaries, ladderTokens } from './legendaryAwards.ts';
 import type { Bus } from './bus.ts';
 import type { CodexLimitSnapshot, CodexSessionRow, CodexUsageRow, ReefAgentFilter } from './reefTypes.ts';
@@ -517,7 +518,9 @@ export function releaseReef(db: Db, upToId: number, upToEventId?: number): { rel
   let catches: { releasedId: number; n: number };
   let events: { releasedId: number; n: number } | null;
   try {
+    const previousMark = getReleasedCatchId(db);
     catches = moveCatchMark(db, upToId);
+    autoAddReleased(db, previousMark, catches.releasedId);
     events = upToEventId === undefined ? null : moveEventMark(db, upToEventId);
     db.exec('RELEASE reef_release');
   } catch (err) {

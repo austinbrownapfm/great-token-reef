@@ -173,3 +173,77 @@ describe('fish pick routes', () => {
     expect(bus.emit).toHaveBeenCalledWith('reef');
   });
 });
+
+describe('auto-add on release', () => {
+  const setup = (strip: number[] | null, full: number[] | null, caught: number[] = [1, 2]) => {
+    const db = seeded(caught);
+    if (strip) setReefFishPick(db, 'strip', strip);
+    if (full) setReefFishPick(db, 'full', full);
+    return db;
+  };
+
+  it('appends a first-ever species to both non-null picks', () => {
+    const db = setup([1], [2]);
+    addCatch(db, 7);
+    releaseAll(db);
+    expect(reefFishPicks(db)).toEqual({ strip: [1, 7], full: [2, 7] });
+  });
+
+  it('does not re-add a repeat species the user removed', () => {
+    const db = setup([1], [1]);
+    addCatch(db, 2);
+    releaseAll(db);
+    expect(reefFishPicks(db)).toEqual({ strip: [1], full: [1] });
+  });
+
+  it('stops at the cap per view', () => {
+    const base = Array.from({ length: 9 }, (_, i) => i + 100);
+    const db = setup(base, base, base);
+    addCatch(db, 7);
+    addCatch(db, 8);
+    releaseAll(db);
+    expect(reefFishPicks(db).strip).toEqual([...base, 7]);
+    expect(reefFishPicks(db).full).toEqual([...base, 7, 8]);
+  });
+
+  it('leaves a full pick unchanged', () => {
+    const full = Array.from({ length: FISH_CAPS.full }, (_, i) => i + 100);
+    const db = setup(null, full, full);
+    addCatch(db, 7);
+    releaseAll(db);
+    expect(reefFishPicks(db).full).toEqual(full);
+  });
+
+  it('keeps a null pick null', () => {
+    const db = setup(null, [1]);
+    addCatch(db, 7);
+    releaseAll(db);
+    expect(reefFishPicks(db)).toEqual({ strip: null, full: [1, 7] });
+  });
+
+  it('does not duplicate a species already in the pick', () => {
+    const db = setup([1], null);
+    addCatch(db, 7);
+    addCatch(db, 7);
+    releaseAll(db);
+    expect(reefFishPicks(db).strip).toEqual([1, 7]);
+  });
+
+  it('adds a first-ever legendary', () => {
+    const db = setup([1], [1]);
+    addCatch(db, 1003, 'legendary');
+    releaseAll(db);
+    expect(reefFishPicks(db)).toEqual({ strip: [1, 1003], full: [1, 1003] });
+  });
+
+  it('survives a corrupt pick and still updates the other view', () => {
+    const db = setup(null, [1]);
+    db.prepare(`INSERT OR REPLACE INTO settings (key, value) VALUES ('fishStrip', 'not json')`).run();
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    addCatch(db, 7);
+    expect(() => releaseAll(db)).not.toThrow();
+    expect(err).toHaveBeenCalledWith(expect.stringContaining('[reef]'));
+    expect(JSON.parse((db.prepare(`SELECT value FROM settings WHERE key='fishFull'`).get() as { value: string }).value))
+      .toEqual([1, 7]);
+  });
+});
