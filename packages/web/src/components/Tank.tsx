@@ -504,8 +504,8 @@ export function Tank({ onHeldRewards }: {
       <div className="reef-tint" />
 
       {emptyMessage && roster.length === 0 && collection.data && !queueHeld && (pick !== null || picksFailed) && !release.releasing && (
-        <div className="absolute inset-0 flex items-center justify-center text-sm text-white/70">
-          {emptyMessage}
+        <div className="pointer-events-none absolute inset-0 z-[12] flex items-center justify-center px-4">
+          <span className="rounded-full bg-black/30 px-4 py-1.5 text-sm text-white/85 backdrop-blur-sm">{emptyMessage}</span>
         </div>
       )}
       {!plaque && !arranging && hoveredFish && hoveredSwimmer && (

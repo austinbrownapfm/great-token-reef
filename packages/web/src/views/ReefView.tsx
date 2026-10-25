@@ -64,7 +64,7 @@ export function ReefView() {
 
   return (
     <div className="mx-auto max-w-6xl p-6">
-      <Header summary={summary.data} />
+      <Header summary={summary.data} codexShown={codexShown} />
       <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="Usage agent">
         {(codexShown ? ['all', 'claude', 'codex'] as const : ['all', 'claude'] as const).map((value) => (
           <button key={value} className={chip(agent === value)} aria-pressed={agent === value}
@@ -137,7 +137,7 @@ function CodexTracking() {
   );
 }
 
-function Header({ summary }: { summary?: ReefSummary }) {
+function Header({ summary, codexShown }: { summary?: ReefSummary; codexShown: boolean }) {
   const qc = useQueryClient();
   const scan = useMutation({
     mutationFn: api.reef.scan,
@@ -164,7 +164,7 @@ function Header({ summary }: { summary?: ReefSummary }) {
         </span>
       )}
       <span className="text-xs text-zinc-400">
-        Claude Code + Codex usage · API-equivalent cost
+        {codexShown ? 'Claude Code + Codex usage' : 'Claude Code usage'} · API-equivalent cost
         {summary?.lifetime.since ? ` · since ${formatDate(summary.lifetime.since)}` : ''}
       </span>
       <span className="ml-auto flex items-center gap-2">
