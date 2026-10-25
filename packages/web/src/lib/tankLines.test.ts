@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { milestoneAt } from '@gtr/shared';
 import type { ReefSessionRow } from './api';
-import { catchJerks, catchTotals, linesFor } from './tankLines';
+import { catchJerks, catchTotals, emptyTankMessage, linesFor } from './tankLines';
 
 const NOW = 1_800_000_000;
 
@@ -71,5 +71,17 @@ describe('catch jerks', () => {
   it('first load never jerks', () => {
     const next = catchTotals([row('p', { catches: 3 })]);
     expect(catchJerks(new Map(), next)).toEqual([]);
+  });
+});
+
+describe('emptyTankMessage', () => {
+  it('stays silent when fish are waiting to release', () => {
+    expect(emptyTankMessage({ waiting: 2, activeLines: 1 })).toBeNull();
+  });
+  it('says lines are in the water when sessions are active', () => {
+    expect(emptyTankMessage({ waiting: 0, activeLines: 1 })).toBe('🎣 Lines are in the water. A session lands its first fish at 2M tokens.');
+  });
+  it('tells a new install how to get a fish', () => {
+    expect(emptyTankMessage({ waiting: 0, activeLines: 0 })).toBe('🎣 No fish yet. Start a Claude Code or Codex session, and each one lands a fish at 2M tokens.');
   });
 });
