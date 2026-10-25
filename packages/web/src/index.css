@@ -1,0 +1,550 @@
+@import 'tailwindcss';
+
+/* The Reef tank (components/Tank.tsx) — fish positions come from the
+   swim simulation (lib/tankSim.ts) via inline transforms; this is only the
+   tail beat, whose speed the loop sets via playbackRate from each fish's speed. */
+@keyframes reef-wag {
+  from { transform: rotate(-3deg); }
+  to { transform: rotate(3deg); }
+}
+.reef-wag > svg, .reef-wag > div > svg { transform-origin: 70% 50%; animation: reef-wag 1s ease-in-out infinite alternate; }
+@media (prefers-reduced-motion: reduce) {
+  .reef-wag > svg, .reef-wag > div > svg { animation-duration: 3s; }
+}
+@keyframes reef-caustic-a {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(-80px, 40px) scale(1.15); }
+}
+@keyframes reef-caustic-b {
+  from { transform: translate(0, 0) scale(1.1); }
+  to { transform: translate(70px, -50px) scale(1); }
+}
+.reef-caustic {
+  position: absolute; inset: -20%; pointer-events: none; mix-blend-mode: overlay;
+  opacity: calc(var(--reef-caustic-opacity) * 2.2);
+  background-image:
+    radial-gradient(ellipse 120px 60px at 20% 30%, rgba(255,255,255,0.55), transparent 70%),
+    radial-gradient(ellipse 160px 70px at 60% 60%, rgba(255,255,255,0.45), transparent 70%),
+    radial-gradient(ellipse 100px 50px at 85% 25%, rgba(255,255,255,0.5), transparent 70%),
+    radial-gradient(ellipse 140px 60px at 40% 85%, rgba(255,255,255,0.4), transparent 70%);
+  background-size: 420px 320px;
+}
+.reef-caustic-a { animation: reef-caustic-a 14s ease-in-out infinite alternate; }
+.reef-caustic-b { animation: reef-caustic-b 19s ease-in-out infinite alternate; }
+@keyframes reef-ray {
+  from { opacity: 0.05; }
+  to { opacity: 0.14; }
+}
+.reef-ray {
+  position: absolute; top: -20%; height: 150%; width: 9%; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0));
+  transform: skewX(-18deg); animation: reef-ray 7s ease-in-out infinite alternate;
+}
+@keyframes reef-drift {
+  from { transform: translateX(-260px) scaleX(-1); }
+  to { transform: translateX(calc(var(--reef-tank-w, 1300px) + 60px)) scaleX(-1); }
+}
+.reef-drift { animation: reef-drift linear infinite; }
+/* Night bioluminescence: the halo widens and brightens with --reef-glow. */
+@keyframes reef-glow {
+  from { filter: drop-shadow(0 0 calc(6px + 8px * var(--reef-glow)) rgba(255, 235, 150, 0.85)) hue-rotate(0deg); }
+  to { filter: drop-shadow(0 0 calc(10px + 12px * var(--reef-glow)) rgba(180, 230, 255, 0.95)) hue-rotate(40deg); }
+}
+.reef-shiny > svg, .reef-shiny > div > svg { animation: reef-glow 4s ease-in-out infinite alternate; }
+.reef-epic > svg, .reef-epic > div > svg {
+  filter: drop-shadow(0 0 calc(8px + 10px * var(--reef-glow)) rgb(192 132 252 / calc(0.7 + 0.25 * var(--reef-glow))));
+}
+@keyframes reef-sway {
+  from { transform: rotate(calc((var(--reef-lean) - var(--reef-sway-amp) * var(--reef-storm-sway, 1)) * 1deg)); }
+  to { transform: rotate(calc((var(--reef-lean) + var(--reef-sway-amp) * var(--reef-storm-sway, 1)) * 1deg)); }
+}
+.reef-sway { transform-origin: bottom center; animation: reef-sway 4s ease-in-out infinite alternate; }
+@keyframes reef-rise {
+  from { transform: translateY(0); opacity: 0.9; }
+  to { transform: translateY(-240px); opacity: 0; }
+}
+.reef-rise { animation: reef-rise linear infinite; }
+/* Sand kicked up by a bottom feeder nosing along the floor. */
+.reef-sandpuff {
+  position: absolute; width: 14px; height: 8px; margin: -4px 0 0 -7px; border-radius: 50%;
+  background: rgba(214, 190, 140, 0.55); filter: blur(2px); pointer-events: none;
+  animation: reef-sandpuff 1.4s ease-out forwards;
+}
+@keyframes reef-sandpuff {
+  from { transform: scale(0.4); opacity: 0.8; }
+  to { transform: translateY(-10px) scale(2.2); opacity: 0; }
+}
+
+/* Tank environment vars (lib/tankEnv.ts), registered so changes cross-fade over 10s. */
+@property --reef-water-0 { syntax: '<color>'; inherits: true; initial-value: #0ea5b7; }
+@property --reef-water-1 { syntax: '<color>'; inherits: true; initial-value: #0b7a99; }
+@property --reef-water-2 { syntax: '<color>'; inherits: true; initial-value: #085b7a; }
+@property --reef-water-3 { syntax: '<color>'; inherits: true; initial-value: #073b52; }
+@property --reef-sand { syntax: '<color>'; inherits: true; initial-value: #d8c48f; }
+@property --reef-tint { syntax: '<color>'; inherits: true; initial-value: transparent; }
+@property --reef-fog-color { syntax: '<color>'; inherits: true; initial-value: rgb(30 60 72); }
+@property --reef-ray-opacity { syntax: '<number>'; inherits: true; initial-value: 0.35; }
+@property --reef-caustic-opacity { syntax: '<number>'; inherits: true; initial-value: 0.25; }
+@property --reef-fog { syntax: '<number>'; inherits: true; initial-value: 0.04; }
+@property --reef-glow { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --reef-sway-amp { syntax: '<number>'; inherits: true; initial-value: 6; }
+@property --reef-lean { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --reef-sun { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --reef-rain { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --reef-chop { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --reef-storm-sway { syntax: '<number>'; inherits: true; initial-value: 1; }
+.reef-tank {
+  --reef-fog-color: rgb(30 60 72);
+  background: linear-gradient(180deg, var(--reef-water-0) 0%, var(--reef-water-1) 35%, var(--reef-water-2) 70%, var(--reef-water-3) 100%);
+  transition-property: --reef-water-0, --reef-water-1, --reef-water-2, --reef-water-3, --reef-sand, --reef-tint,
+    --reef-fog-color, --reef-ray-opacity, --reef-caustic-opacity, --reef-fog, --reef-glow, --reef-sway-amp, --reef-lean, --reef-sun,
+    --reef-rain, --reef-chop, --reef-storm-sway;
+  transition-duration: 10s;
+  transition-timing-function: ease-in-out;
+}
+.reef-rays { position: absolute; inset: 0; pointer-events: none; opacity: calc(var(--reef-ray-opacity) / 0.35); }
+.reef-sand {
+  background: linear-gradient(180deg, var(--reef-sand) 0%, color-mix(in srgb, var(--reef-sand) 86%, #000) 40%, color-mix(in srgb, var(--reef-sand) 76%, #000) 100%);
+}
+/* Floor decor and weeds sink into the dark with the water (skipped by day: filters cost paint). */
+.reef-tank:not([data-reef-phase='day']) .reef-nightdim {
+  filter: brightness(calc(1 - 0.5 * var(--reef-glow))) saturate(calc(1 - 0.35 * var(--reef-glow)));
+}
+.reef-fog {
+  position: absolute; inset: 0; pointer-events: none; opacity: var(--reef-fog);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--reef-fog-color) 60%, transparent) 0%, var(--reef-fog-color) 100%);
+}
+.reef-tint { position: absolute; inset: 0; pointer-events: none; background: var(--reef-tint); }
+.reef-moon {
+  position: absolute; inset: 0 0 auto 0; height: 65%; pointer-events: none; mix-blend-mode: screen; opacity: var(--reef-glow);
+  background:
+    radial-gradient(ellipse 20% 55% at 74% -10%, rgb(214 228 255 / 0.42), rgb(170 196 255 / 0.12) 45%, transparent 75%),
+    linear-gradient(180deg, rgb(200 220 255 / 0.16), transparent 7%);
+}
+.reef-sun {
+  position: absolute; inset: 0 0 auto 0; height: 70%; pointer-events: none; mix-blend-mode: screen; opacity: var(--reef-sun);
+  background: radial-gradient(ellipse 50% 75% at var(--reef-sun-x, 18%) -12%, rgb(255 178 112 / 0.45), rgb(255 138 128 / 0.12) 50%, transparent 78%);
+}
+.reef-plankton-layer { position: absolute; inset: 0; pointer-events: none; opacity: var(--reef-glow); }
+@keyframes reef-plankton {
+  0% { transform: translate(0, 0); opacity: 0.15; }
+  50% { opacity: 0.9; }
+  100% { transform: translate(18px, -26px); opacity: 0.25; }
+}
+.reef-plankton {
+  position: absolute; border-radius: 9999px; background: rgb(190 245 255);
+  box-shadow: 0 0 5px 1px rgb(120 220 255 / 0.7);
+  animation: reef-plankton ease-in-out infinite alternate;
+}
+/* Storm ladder (TankWeather.tsx): a broken band at the waterline that grows with --reef-chop; two wave layers slide against each other. */
+@keyframes reef-chop {
+  from { background-position: 0 0, 15px 2px; }
+  to { background-position: 46px 0, -16px 2px; }
+}
+@keyframes reef-fade-in { from { opacity: 0; } }
+.reef-chop {
+  position: absolute; inset: 0 0 auto 0; height: calc((5px + 9px * var(--reef-chop)) * var(--reef-scale, 1));
+  pointer-events: none; opacity: calc(0.35 + 0.5 * var(--reef-chop));
+  background-image:
+    radial-gradient(ellipse 50% 70% at 50% 0%, rgb(220 236 246 / 0.32), transparent 72%),
+    radial-gradient(ellipse 50% 70% at 50% 0%, rgb(8 18 28 / 0.35), transparent 72%);
+  background-size: 46px 100%, 31px 100%;
+  background-repeat: repeat-x;
+  animation: reef-chop 2.4s linear infinite, reef-fade-in 8s ease-out;
+}
+.reef-chop-out { animation: reef-chop 2.4s linear infinite, reef-fade-out 8s ease-in forwards; }
+.reef-plankton-out { animation: reef-fade-out 10s ease-in-out forwards; }
+/* Rain: thin streak tiles falling above the waterline, fading out where they hit the surface. */
+@keyframes reef-rain {
+  from { background-position: 0 0, 9px 7px; }
+  to { background-position: -4px 22px, 5px 33px; }
+}
+.reef-rain {
+  position: absolute; inset: 0 0 auto 0; pointer-events: none; opacity: calc(0.6 * var(--reef-rain));
+  background-image:
+    radial-gradient(1px 5px at 50% 50%, rgb(225 238 248 / 0.85), transparent),
+    radial-gradient(1px 4px at 50% 50%, rgb(225 238 248 / 0.6), transparent);
+  background-size: 17px 22px, 23px 26px;
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 10px), transparent);
+  mask-image: linear-gradient(180deg, #000 calc(100% - 10px), transparent);
+  animation: reef-rain 0.7s linear infinite, reef-fade-in 6s ease-out;
+}
+/* Streaks carry on under the surface and die out within the layer's height (60px fullscreen, 25px strip). */
+.reef-rain-under {
+  -webkit-mask-image: linear-gradient(180deg, #000, transparent);
+  mask-image: linear-gradient(180deg, #000, transparent);
+}
+@keyframes reef-rain-heavy {
+  from { background-position: 0 0, 6px 4px; }
+  to { background-position: -6px 18px, 1px 24px; }
+}
+/* Heavy rain slants harder as the current leans the weeds. */
+.reef-rain-heavy {
+  left: -15%; right: -15%; transform-origin: 50% 0; transform: skewX(calc(-8deg - var(--reef-lean, 0) * 2deg));
+  opacity: calc(0.75 * var(--reef-rain));
+  background-image:
+    radial-gradient(1px 7px at 50% 50%, rgb(225 238 248 / 0.9), transparent),
+    radial-gradient(1px 5px at 50% 50%, rgb(225 238 248 / 0.7), transparent);
+  background-size: 11px 18px, 13px 20px;
+  animation: reef-rain-heavy 0.5s linear infinite, reef-fade-in 6s ease-out;
+}
+.reef-rain-under { opacity: calc(0.45 * var(--reef-rain)); }
+.reef-rain-under.reef-rain-heavy { opacity: calc(0.6 * var(--reef-rain)); }
+/* Raindrop dimples on the waterline: ring tiles that jump to new spots each step. */
+@keyframes reef-dimples {
+  0%, 100% { background-position: 0 0, 11px 0; }
+  33% { background-position: 19px 0, 31px 0; }
+  66% { background-position: 7px 0, 44px 0; }
+}
+.reef-dimples {
+  position: absolute; left: 0; right: 0; height: 6px; pointer-events: none; opacity: calc(0.9 * var(--reef-rain));
+  background-image:
+    radial-gradient(6px 2px at 50% 50%, transparent 45%, rgb(230 242 250 / 0.8) 65%, transparent 90%),
+    radial-gradient(4px 1.5px at 50% 50%, transparent 40%, rgb(230 242 250 / 0.6) 65%, transparent 90%);
+  background-size: 37px 6px, 53px 6px;
+  background-repeat: repeat-x;
+  animation: reef-dimples 1.2s step-end infinite;
+}
+.reef-dimples-heavy { background-size: 19px 6px, 27px 6px; animation-duration: 0.75s; }
+/* Lightning: a soft glow from above; 0.7s up and 1.1s down, once per 11s (never a strobe). */
+@keyframes reef-lightning {
+  0%, 100% { opacity: 0; }
+  6% { opacity: 1; }
+  16% { opacity: 0; }
+}
+.reef-lightning {
+  position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; opacity: 0;
+  background: radial-gradient(ellipse 80% 70% at 62% -12%, rgb(220 230 255 / 0.46), rgb(200 215 255 / 0.14) 55%, transparent 82%);
+  animation: reef-lightning 11s ease-in-out 4s infinite;
+}
+@keyframes reef-debris {
+  from { transform: translate(-40px, 0) rotate(0deg); }
+  25% { transform: translate(calc(var(--reef-tank-w, 1300px) * 0.25), 16px) rotate(200deg); }
+  50% { transform: translate(calc(var(--reef-tank-w, 1300px) * 0.5), -4px) rotate(380deg); }
+  75% { transform: translate(calc(var(--reef-tank-w, 1300px) * 0.75), 22px) rotate(590deg); }
+  to { transform: translate(calc(var(--reef-tank-w, 1300px) + 40px), 6px) rotate(760deg); }
+}
+.reef-debris { position: absolute; left: 0; pointer-events: none; animation: reef-debris linear infinite; }
+@keyframes reef-storm-pulse {
+  0%, 100% { filter: drop-shadow(0 0 0 rgb(239 68 68 / 0)); }
+  50% { filter: drop-shadow(0 0 6px rgb(239 68 68 / 0.85)); }
+}
+.reef-storm-pulse { animation: reef-storm-pulse 2.2s ease-in-out infinite; }
+/* Food flakes, positioned by the rAF loop; 8s dissolve matches FLAKE_TTL_LANDED. */
+.reef-flake {
+  position: absolute; left: -2.5px; top: -1.5px; width: 5px; height: 3px; border-radius: 1px;
+  background: rgb(214 150 72); box-shadow: 0 0 2px rgb(255 214 150 / 0.6);
+  will-change: transform;
+}
+@keyframes reef-flake-dissolve { to { opacity: 0; } }
+.reef-flake-landed { animation: reef-flake-dissolve 8s ease-in forwards; }
+/* Fishing lines: origin 0 0 is the bobber (the parent <g> translates there). */
+@keyframes reef-bob { from { transform: translateY(-1.5px); } to { transform: translateY(1.5px); } }
+.reef-bob { animation: reef-bob 2.8s ease-in-out infinite alternate; }
+@keyframes reef-bobber-jerk {
+  0%, 45%, 100% { transform: translateY(0); }
+  18%, 68% { transform: translateY(calc(10px * var(--reef-scale, 1))); }
+}
+.reef-bobber-jerk { animation: reef-bobber-jerk 1.2s ease-in-out; filter: drop-shadow(0 0 5px rgb(253 224 71)); }
+@keyframes reef-line-twang {
+  0%, 100% { transform: skewX(0deg); }
+  10% { transform: skewX(2.5deg); } 25% { transform: skewX(-2deg); } 40% { transform: skewX(1.4deg); }
+  55% { transform: skewX(-0.9deg); } 70% { transform: skewX(0.5deg); } 85% { transform: skewX(-0.2deg); }
+}
+.reef-line-twang { transform-origin: 0 0; animation: reef-line-twang 1.2s ease-out; }
+/* New fish release: the button breathes, each catch splashes in at the surface under a banner. */
+@keyframes reef-release-pulse {
+  0%, 100% { box-shadow: 0 4px 14px rgb(0 0 0 / 0.25), 0 0 0 0 rgb(252 211 77 / 0.6); }
+  50% { box-shadow: 0 4px 14px rgb(0 0 0 / 0.25), 0 0 0 7px rgb(252 211 77 / 0); }
+}
+.reef-release-btn { animation: reef-release-pulse 2.4s ease-in-out infinite, reef-fade-in 0.5s ease-out; }
+.reef-release-btn:hover { transform: translateY(-1px); }
+@keyframes reef-badge-pop { 0% { transform: scale(0.4); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
+.reef-release-badge { animation: reef-badge-pop 0.45s ease-out; }
+.reef-splash { position: absolute; z-index: 20; width: 0; height: 0; pointer-events: none; --tone: 232 246 255; --s: 1; }
+.reef-splash-big { --s: 1.6; }
+.reef-splash-shiny { --tone: 255 226 140; }
+.reef-splash-epic { --tone: 214 180 255; }
+@keyframes reef-ripple {
+  from { transform: translate(-50%, -50%) scale(0.15); opacity: 0.95; }
+  to { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+.reef-ripple {
+  position: absolute; left: 0; top: 0; width: calc(110px * var(--s)); height: calc(16px * var(--s)); border-radius: 50%;
+  border: 2px solid rgb(var(--tone) / 0.85); box-shadow: 0 0 6px rgb(var(--tone) / 0.35);
+  animation: reef-ripple 1.4s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+@keyframes reef-droplet {
+  0% { transform: translate(0, 0) scale(1); opacity: 0; }
+  8% { opacity: 1; }
+  45% { transform: translate(calc(var(--dx) * 0.6), var(--dy)) scale(1); }
+  100% { transform: translate(var(--dx), 6px) scale(0.5); opacity: 0; }
+}
+.reef-droplet {
+  position: absolute; left: -2px; top: -2px; width: 4px; height: 5px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  background: rgb(var(--tone) / 0.95); box-shadow: 0 0 4px rgb(var(--tone) / 0.6);
+  animation: reef-droplet 0.9s cubic-bezier(0.25, 0.6, 0.5, 1) both;
+}
+@keyframes reef-splash-flash {
+  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+.reef-splash-flash {
+  position: absolute; left: 0; top: 0; width: calc(90px * var(--s)); height: calc(60px * var(--s)); border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(var(--tone) / 0.7), rgb(var(--tone) / 0.15) 60%, transparent);
+  animation: reef-splash-flash 0.8s ease-out both;
+}
+@keyframes reef-splash-bubble {
+  from { transform: translateY(var(--by)); opacity: 0; }
+  25% { opacity: 0.9; }
+  to { transform: translateY(4px); opacity: 0; }
+}
+.reef-splash-bubble {
+  position: absolute; top: 0; border-radius: 9999px; border: 1px solid rgb(255 255 255 / 0.7);
+  animation: reef-splash-bubble 1.3s ease-out both;
+}
+/* 3s banner: lift in, hold, drift up and out (BANNER_MS in useTankRelease.ts). */
+@keyframes reef-banner {
+  0% { opacity: 0; transform: translateY(-10px) scale(0.94); }
+  9% { opacity: 1; transform: translateY(0) scale(1.03); }
+  14% { transform: translateY(0) scale(1); }
+  85% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-8px); }
+}
+.reef-banner { position: relative; overflow: hidden; animation: reef-banner 3s ease-out both; }
+@keyframes reef-banner-sheen { from { transform: translateX(-120%) skewX(-20deg); } to { transform: translateX(320%) skewX(-20deg); } }
+.reef-banner-shiny { box-shadow: 0 0 22px rgb(252 211 77 / 0.35), 0 10px 25px rgb(0 0 0 / 0.3); }
+.reef-banner-shiny::after {
+  content: ''; position: absolute; inset: 0 auto 0 0; width: 35%; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgb(255 240 190 / 0.28), transparent);
+  animation: reef-banner-sheen 1.6s ease-in-out 0.3s both;
+}
+@keyframes reef-banner-fade { 0%, 100% { opacity: 0; } 10%, 85% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .reef-caustic-a, .reef-caustic-b, .reef-ray, .reef-drift, .reef-shiny > svg, .reef-shiny > div > svg,
+  .reef-plankton, .reef-chop, .reef-rain, .reef-dimples, .reef-storm-pulse, .reef-bob, .reef-bobber-jerk, .reef-line-twang,
+  .reef-release-btn, .reef-release-badge, .reef-banner-shiny::after { animation: none; }
+  .reef-lightning, .reef-debris { display: none; }
+  .reef-release-btn:hover { transform: none; }
+  .reef-banner { animation: reef-banner-fade 3s linear both; }
+  .reef-plankton { opacity: 0.6; }
+  .reef-shiny > svg, .reef-shiny > div > svg { filter: drop-shadow(0 0 calc(8px + 10px * var(--reef-glow)) rgb(255 235 150 / 0.85)); }
+}
+/* Visitors (components/TankVisitors.tsx): an entrance, a resting loop, and once clicked (.reef-visitor-leaving) an exit;
+   the container's reef-visitor-out ending removes it. */
+@keyframes reef-visitor-out { 0%, 40% { opacity: 1; } 100% { opacity: 0; } }
+.reef-visitor-leaving { animation: reef-visitor-out 0.4s ease-in forwards; }
+.reef-visitor-leaving .reef-visitor-card { animation: reef-visitor-card-out 0.3s ease-in forwards; pointer-events: none; }
+@keyframes reef-visitor-card-out { to { opacity: 0; transform: translateY(4px) scale(0.97); } }
+@keyframes reef-visitor-card { from { opacity: 0; transform: translateY(6px) scale(0.96); } }
+/* Hidden (so it can't catch the pointer) until the card's own entrance at --card-at. */
+@keyframes reef-visitor-hold { from, to { visibility: hidden; } }
+.reef-visitor-card { animation: reef-visitor-card 0.4s ease-out var(--card-at, 0s) both, reef-visitor-hold var(--card-at, 0s) step-end; }
+/* A card hangs from its visitor's centre; near a side wall it hangs inward so it stays in the tank. */
+.reef-card-start { left: 0; translate: -24px 0; }
+.reef-card-center { left: 0; translate: -50% 0; }
+.reef-card-end { left: 0; translate: calc(-100% + 24px) 0; }
+.reef-visitor-list { scrollbar-width: thin; }
+/* A compact card (no room for the full one) is one line until hovered or focused; a hovered or focused card rises above the rest. */
+/* Visually hidden, not display:none, so screen readers still get the full card. */
+.reef-card-compact:not(:hover):not(:focus-within) .reef-card-full {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+.reef-card-compact:is(:hover, :focus-within) .reef-card-short { display: none; }
+.reef-visitor:has(.reef-visitor-card:is(:hover, :focus-within)) { z-index: 36; }
+@keyframes reef-glint {
+  0% { transform: scale(0) rotate(0deg); opacity: 0; }
+  35% { transform: scale(1.25) rotate(30deg); opacity: 1; }
+  100% { transform: scale(0.2) rotate(90deg); opacity: 0; }
+}
+.reef-glint { transform-box: fill-box; transform-origin: center; animation: reef-glint 0.9s ease-out 1.6s both; filter: drop-shadow(0 0 3px rgb(255 230 140)); }
+/* Chest: sinks from the surface swaying, puffs sand, lid lifts at 1.45s, glint; its card is up as it lands. Clicked: lid shuts, it fades over ~1s. */
+.reef-chest {
+  position: absolute; width: var(--cw); height: var(--ch); left: calc(var(--cw) / -2); top: calc(100% - var(--ch));
+  animation: reef-chest-sink 1.3s cubic-bezier(0.35, 0.05, 0.6, 1) both;
+}
+@keyframes reef-chest-sink {
+  0% { top: 0; opacity: 0; transform: rotate(-8deg); }
+  12% { opacity: 1; }
+  40% { transform: rotate(6deg); }
+  72% { transform: rotate(-3deg); }
+  100% { top: calc(100% - var(--ch)); transform: rotate(0deg); }
+}
+@keyframes reef-chest-lid { to { transform: translate(-1px, -3px) rotate(-28deg); } }
+@keyframes reef-chest-lid-shut { from { transform: translate(-1px, -3px) rotate(-28deg); } to { transform: none; } }
+.reef-chest-lid { transform-box: fill-box; transform-origin: 0% 100%; animation: reef-chest-lid 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) 1.45s both; }
+.reef-visitor-leaving .reef-chest-lid { animation: reef-chest-lid-shut 0.3s ease-in both; }
+.reef-visitor-chest.reef-visitor-leaving { animation-duration: 1.1s; }
+@keyframes reef-chest-gold { from { opacity: 0.35; } to { opacity: 1; } }
+.reef-chest-gold { animation: reef-chest-gold 0.6s ease-out 1.5s both; }
+@keyframes reef-chest-glow {
+  0% { opacity: 0; transform: scale(0.4); }
+  30% { opacity: 0.9; }
+  100% { opacity: 0.35; transform: scale(1); }
+}
+.reef-chest-glow {
+  position: absolute; left: 50%; top: 30%; width: calc(var(--cw) * 2.2); height: calc(var(--cw) * 2.2); margin: calc(var(--cw) * -1.1);
+  border-radius: 50%; background: radial-gradient(closest-side, rgb(255 222 120 / 0.75), rgb(255 200 80 / 0.2) 55%, transparent);
+  animation: reef-chest-glow 1.4s ease-out 1.5s both;
+}
+@keyframes reef-chest-puff {
+  0% { opacity: 0; transform: scale(0.4); }
+  10% { opacity: 0.8; }
+  100% { opacity: 0; transform: translateY(-8px) scale(2.4); }
+}
+.reef-chest-puff {
+  position: absolute; left: 15%; right: 15%; bottom: -2px; height: 10px; border-radius: 50%;
+  background: rgba(214, 190, 140, 0.6); filter: blur(2px); animation: reef-chest-puff 1s ease-out 1.25s both;
+}
+.reef-chest-card { --card-at: 0.3s; }
+/* Bottle: drifts in to its spot just under the waterline, cork pops, the note unrolls, then it bobs in place. Clicked: drifts off and fades. */
+@keyframes reef-bottle-arrive { from { transform: translateX(-60px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes reef-bottle-away { to { transform: translate(150px, 4px); } }
+.reef-bottle-drift { animation: reef-bottle-arrive 1.4s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+.reef-visitor-leaving .reef-bottle-drift { animation: reef-bottle-away 2s ease-in forwards; }
+.reef-visitor-bottle.reef-visitor-leaving { animation-duration: 2s; }
+@keyframes reef-bottle-bob { from { transform: translateY(-2px) rotate(-7deg); } to { transform: translateY(2px) rotate(5deg); } }
+.reef-bottle-bob { animation: reef-bottle-bob 1.7s ease-in-out infinite alternate; filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.25)); }
+@keyframes reef-cork-pop {
+  40% { transform: translate(8px, -12px) rotate(60deg); opacity: 1; }
+  100% { transform: translate(14px, -5px) rotate(140deg); opacity: 0; }
+}
+.reef-bottle-cork { transform-box: fill-box; transform-origin: center; animation: reef-cork-pop 0.7s cubic-bezier(0.2, 0.8, 0.4, 1) 1s both; }
+.reef-glint-cork { animation-delay: 1.05s; }
+.reef-bottle-note { --card-at: 1.3s; }
+/* The note is the message from the bottle: parchment, like the plaque. */
+.reef-note {
+  color: #2b2418; background: linear-gradient(180deg, #faf6ea 0%, #efe4c8 100%);
+  box-shadow: inset 0 0 0 1px rgb(166 131 74 / 0.55), 0 8px 20px rgb(0 0 0 / 0.3);
+}
+.reef-note-key { color: #8a4b1c; letter-spacing: 0.02em; }
+/* Whale: cruises the deep band back and forth over --dur (starting --delay into it), turning at each end; body and card share the cruise.
+   Clicked: the cruise holds and it swims off the way it faces (--exit), fading. */
+@keyframes reef-whale-cruise {
+  0% { transform: translateX(0); animation-timing-function: ease-in-out; }
+  50% { transform: translateX(calc(100% - var(--ww))); animation-timing-function: ease-in-out; }
+  100% { transform: translateX(0); }
+}
+.reef-whale-cruise { animation: reef-whale-cruise var(--dur, 40s) linear var(--delay, 0s) infinite; }
+/* The art faces left: mirrored on the run right, turning around each end. */
+@keyframes reef-whale-face { 0%, 46% { transform: scaleX(-1); } 54%, 96% { transform: scaleX(1); } 100% { transform: scaleX(-1); } }
+.reef-whale-face { animation: reef-whale-face var(--dur, 40s) linear var(--delay, 0s) infinite; }
+@keyframes reef-whale-swim { from { transform: translateY(-4px) rotate(-1deg); } to { transform: translateY(4px) rotate(1deg); } }
+.reef-whale-swim { animation: reef-whale-swim 3s ease-in-out infinite alternate; filter: blur(1.5px); }
+@keyframes reef-whale-exit { to { transform: translateX(calc(var(--exit, -1) * 110%)); } }
+.reef-visitor-leaving .reef-whale-cruise, .reef-visitor-leaving .reef-whale-face { animation-play-state: paused; }
+.reef-visitor-leaving .reef-whale-exit { animation: reef-whale-exit 2.6s ease-in forwards; }
+.reef-visitor-whale.reef-visitor-leaving { animation-duration: 2.6s; }
+.reef-whale-caption { --card-at: 0.6s; }
+@media (prefers-reduced-motion: reduce) {
+  /* Visitors appear in place and hold still; a click removes them at once (useTankRelease), so there is no exit. */
+  .reef-chest, .reef-chest-puff, .reef-glint, .reef-bottle-drift, .reef-bottle-bob, .reef-whale-swim, .reef-whale-face, .reef-visitor-leaving { animation: none; }
+  .reef-whale-cruise { animation: none; transform: translateX(calc(var(--seed, 0.5) * (100% - var(--ww)))); }
+  .reef-chest-puff, .reef-glint, .reef-bottle-cork { opacity: 0; }
+  .reef-chest-lid { animation: none; transform: translate(-1px, -3px) rotate(-28deg); }
+  .reef-chest-gold, .reef-bottle-cork { animation: none; }
+  .reef-chest-glow { animation: none; opacity: 0.35; }
+  .reef-visitor-card { animation: none; }
+}
+/* Set rewards (components/TankDecor.tsx): decor settles onto the sand with a sparkle, backdrops cross-fade, badge fish shimmer gold. */
+@keyframes reef-decor-settle {
+  0% { transform: translateY(-70px) rotate(-6deg); opacity: 0; }
+  15% { opacity: 1; }
+  62% { transform: translateY(0) rotate(3deg); }
+  80% { transform: translateY(-3px) rotate(-1deg); }
+  100% { transform: none; }
+}
+.reef-decor-settle { animation: reef-decor-settle 1.2s cubic-bezier(0.35, 0.05, 0.6, 1) both; }
+.reef-decor-spark { transform-box: fill-box; transform-origin: center; filter: drop-shadow(0 0 3px rgb(255 230 140)); animation: reef-glint 0.9s ease-out both; }
+.reef-decor-puff {
+  position: absolute; left: 10%; right: 10%; bottom: -3px; height: 10px; border-radius: 50%;
+  background: rgba(214, 190, 140, 0.6); filter: blur(2px); animation: reef-chest-puff 1s ease-out 0.75s both;
+}
+/* Night fades a backdrop with opacity, not the nightdim filter, so swaying kelp never re-filters a full-tank layer per frame. */
+.reef-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: calc(1 - 0.55 * var(--reef-glow)); }
+@keyframes reef-fade-out { to { opacity: 0; } }
+.reef-backdrop-in { animation: reef-fade-in 2s ease-in-out both; }
+.reef-backdrop-out { animation: reef-fade-out 2s ease-in-out forwards; }
+@keyframes reef-kelp-sway { from { transform: rotate(-1.2deg); } to { transform: rotate(1.2deg); } }
+.reef-kelp-sway { transform-box: fill-box; transform-origin: 50% 100%; animation: reef-kelp-sway 7s ease-in-out infinite alternate; }
+@keyframes reef-gold-shimmer {
+  from { filter: drop-shadow(0 0 2px rgb(255 214 102 / 0.3)); }
+  to { filter: drop-shadow(0 0 6px rgb(255 214 102 / 0.6)); }
+}
+.reef-gold { animation: reef-gold-shimmer 3.2s ease-in-out infinite alternate; }
+@keyframes reef-gold-flash {
+  0% { filter: drop-shadow(0 0 0 rgb(255 214 102 / 0)) brightness(1); }
+  22% { filter: drop-shadow(0 0 16px rgb(255 214 102 / 0.95)) brightness(1.35) sepia(0.4); }
+  42% { filter: drop-shadow(0 0 8px rgb(255 214 102 / 0.7)) brightness(1.1); }
+  62% { filter: drop-shadow(0 0 16px rgb(255 214 102 / 0.95)) brightness(1.3) sepia(0.3); }
+  100% { filter: drop-shadow(0 0 4px rgb(255 214 102 / 0.45)) brightness(1); }
+}
+.reef-gold.reef-gold-flash { animation: reef-gold-flash 2.4s ease-in-out both; }
+/* Gold medal on a Dex card (and the badge banner): one species set complete. */
+.reef-dex-badge {
+  display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 9999px;
+  font-size: 11px; line-height: 1; color: #7a4b06;
+  background: radial-gradient(circle at 35% 30%, #fff3c4, #f2c94c 45%, #c8922a 100%);
+  box-shadow: 0 0 0 1px #b8862b, 0 1px 3px rgb(0 0 0 / 0.25);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reef-decor-settle, .reef-backdrop-in, .reef-backdrop-out, .reef-kelp-sway, .reef-gold, .reef-gold.reef-gold-flash { animation: none; }
+  .reef-decor-spark, .reef-decor-puff { display: none; }
+  .reef-gold { filter: drop-shadow(0 0 4px rgb(255 214 102 / 0.5)); }
+}
+/* Tank plaque (components/TankPlaque.tsx): an aquarium placard, opaque so it reads on day and night water. */
+@keyframes reef-plaque-in { from { opacity: 0; scale: 0.96; } to { opacity: 1; scale: 1; } }
+.reef-plaque {
+  position: absolute; left: 0; top: 0; z-index: 40; width: 300px; max-height: calc(100% - 16px); overflow-y: auto;
+  padding: 14px 16px 12px; border-radius: 6px; cursor: default;
+  color: #22302f; font-size: 12px; line-height: 1.45;
+  background: linear-gradient(180deg, #faf6ea 0%, #f1e9d4 100%);
+  border: 1px solid #a6834a;
+  box-shadow: inset 0 0 0 3px #faf6ea, inset 0 0 0 4px rgb(166 131 74 / 0.55), 0 12px 28px rgb(0 0 0 / 0.38);
+  animation: reef-plaque-in 180ms ease-out both;
+  transform-origin: center;
+}
+.reef-tank:not([data-reef-phase='day']) .reef-plaque { filter: brightness(0.9) saturate(0.92); }
+.reef-plaque-close {
+  position: absolute; right: 8px; top: 6px; width: 22px; height: 22px; border-radius: 9999px;
+  color: #6b5a3a; font-size: 12px; line-height: 22px; text-align: center;
+}
+.reef-plaque-close:hover { background: rgb(166 131 74 / 0.18); color: #22302f; }
+.reef-plaque-close:focus-visible { outline: 2px solid #a6834a; outline-offset: 1px; }
+.reef-plaque-rarity {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #6b6458;
+}
+.reef-plaque-rarity[data-rarity='uncommon'] { color: #1d7a52; }
+.reef-plaque-rarity[data-rarity='rare'] { color: #1f6aa5; }
+.reef-plaque-rarity[data-rarity='epic'] { color: #7a3fb0; }
+.reef-plaque-name {
+  margin-top: 2px; padding-right: 18px; font-family: ui-serif, Georgia, Cambria, 'Times New Roman', serif;
+  font-size: 18px; font-weight: 600; line-height: 1.2; color: #1b2625;
+}
+.reef-plaque-sci { font-family: ui-serif, Georgia, Cambria, 'Times New Roman', serif; font-style: italic; color: #5d5547; }
+.reef-plaque-marks { margin-top: 8px; color: #3c4744; }
+.reef-plaque-fact {
+  margin-top: 6px; padding-left: 8px; border-left: 2px solid rgb(166 131 74 / 0.6); color: #2b3634;
+}
+.reef-plaque-stats {
+  display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 10px; padding-top: 8px;
+  border-top: 1px solid rgb(166 131 74 / 0.4);
+}
+.reef-plaque-stats dt { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #7a705e; }
+.reef-plaque-stats dd { font-weight: 600; color: #22302f; font-variant-numeric: tabular-nums; }
+.reef-plaque-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 8px; font-size: 11px; color: #5d5547; }
+.reef-plaque-set-done { color: #8a6514; font-weight: 600; }
+.reef-plaque-foot a { flex: none; font-weight: 600; color: #1f5f86; }
+.reef-plaque-foot a:hover { text-decoration: underline; }
+/* The 224px strip: narrower, marks dropped, fact clamped so the plaque fits the tank. */
+.reef-plaque-compact { width: 264px; padding: 10px 12px 9px; font-size: 11px; line-height: 1.4; }
+.reef-plaque-compact .reef-plaque-name { font-size: 15px; }
+.reef-plaque-compact .reef-plaque-marks { display: none; }
+.reef-plaque-compact .reef-plaque-fact { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-top: 5px; }
+.reef-plaque-compact .reef-plaque-stats { margin-top: 6px; padding-top: 5px; }
+.reef-plaque-compact .reef-plaque-foot { margin-top: 5px; }
+@media (prefers-reduced-motion: reduce) {
+  .reef-plaque { animation: none; }
+}
