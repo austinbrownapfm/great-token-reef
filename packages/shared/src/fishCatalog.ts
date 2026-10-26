@@ -281,6 +281,18 @@ export const MORPH_PALETTES: Record<string, Partial<Palette>> = {
   'Stoplight Parrotfish|Supermale': { back: '#1f8a7d', mid: '#2eb89a', belly: '#a3e8cc', accent: '#f2555c', bar: '#f6e83a' },
   'Red Lionfish|Dark Deepwater': { back: '#4a1f1a', mid: '#77352c', belly: '#c9a08a', fin: '#5c2620', bar: '#d9bfa8' },
   'Lined Seahorse|Sunburst Gold': { back: '#f0b422', mid: '#f8cf4a', belly: '#fdf0b8', fin: '#f4c032', bar: '#fef8dc' },
+  'Largemouth Bass|Florida Strain': { back: '#2a4620', mid: '#557a36', belly: '#e4e2bc', fin: '#42602c', mark: '#10180a' },
+  'Smallmouth Bass|River Bronze': { back: '#6e5424', mid: '#b08a3c', belly: '#f0e2b8', fin: '#80642c', mark: '#3d2c10' },
+  'Smallmouth Bass|Blackbar': { back: '#4e4a32', mid: '#8a8258', belly: '#e8e2c8', fin: '#5c5838', mark: '#050403' },
+  'Bluegill|Breeding Male': { back: '#1e2c44', mid: '#44607a', belly: '#e0602a', fin: '#28384e', mark: '#0e1622', accent: '#c83e1a' },
+  'Bluegill|Coppernose': { back: '#34505e', mid: '#7a9294', belly: '#ead6a4', fin: '#44606c', mark: '#1c2c34', accent: '#c87436' },
+  'Pumpkinseed|Breeding Male': { back: '#22584c', mid: '#4aa08a', belly: '#f2862a', fin: '#2e6a58', mark: '#12362a', accent: '#e83c26' },
+  'Black Crappie|Blacknose': { back: '#161c1c', mid: '#6e7e72', belly: '#e2e6d4', fin: '#2c3632', mark: '#0c1010' },
+  'Yellow Perch|Butter Golden': { back: '#c8a032', mid: '#f2d86c', belly: '#fcf4cc', fin: '#f0b03c', mark: '#a8862a' },
+  'Channel Catfish|Slate Blue': { back: '#34506e', mid: '#6e8eae', belly: '#e0e8f0', fin: '#42607e', mark: '#22384e' },
+  'Sockeye Salmon|Kokanee': { back: '#2e5e66', mid: '#94b8b4', belly: '#eef4f2', fin: '#3e6e72', mark: '#1a3236' },
+  'Atlantic Salmon|Landlocked (Sebago)': { back: '#36463a', mid: '#94a69a', belly: '#eef0ea', fin: '#46584a', mark: '#101612' },
+  'Summer Flounder|Ambicolored': { back: '#463a28', mid: '#5e4e36', belly: '#54462e', fin: '#4e4230', mark: '#241c12' },
 };
 
 /** Per-entry body-plan option overrides, keyed `${speciesName}|${morphLabel}`. */
@@ -289,6 +301,11 @@ export const MORPH_PLAN_OPTS: Record<string, Record<string, unknown>> = {
   'Common Carp|Mirror Carp': { scales: 'mirror' },
   'Common Carp|Leather Carp': { scales: 'none' },
   'Common Carp|Kohaku Koi': { scales: 'mirror' },
+  'Muskellunge|Barred': { vbars: true },
+  'Red Drum|Multi-Spot': { tailSpot: 'multi' },
+  'Yellowfin Tuna|Allison Longfin': { longfin: true },
+  'Mahi-Mahi|Cow': { cow: true },
+  'Ocellaris Clownfish|Misbar': { misbar: true },
 };
 
 // ---------------------------------------------------------------------------

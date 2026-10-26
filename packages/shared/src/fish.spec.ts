@@ -100,6 +100,16 @@ describe('Reef Dex catalog', () => {
     }
   });
 
+  it('variants of a species draw differently unless they differ only by size', () => {
+    const seen = new Map<string, number>();
+    ENTRIES.forEach((e, i) => {
+      if (e.b) return;
+      const key = `${e.s}|${fishSvg(i, false, 'x')}`;
+      expect(seen.has(key), `${speciesName(i)} draws the same as ${speciesName(seen.get(key) ?? i)}`).toBe(false);
+      seen.set(key, i);
+    });
+  });
+
   it('no entry name contains the word "Phase"', () => {
     for (let i = 0; i < SPECIES_COUNT; i++) expect(speciesName(i)).not.toMatch(/\bPhase\b/);
   });

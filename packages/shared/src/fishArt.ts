@@ -193,7 +193,8 @@ export const catfish: PlanBuilder = (uid, p, o = {}) => {
 };
 
 // ---------------------------------------------------------------------------
-// reef — small compressed reef fish. Default: clownfish (three edged bars).
+// reef — small compressed reef fish. Default: clownfish (three edged bars;
+// o.misbar breaks them).
 // o.tang: palette-knife flank marking + accent tail. o.angel: diagonal
 // stripes + eye mask + trailing dorsal.
 
@@ -217,10 +218,12 @@ export const reef: PlanBuilder = (uid, p, o = {}) => {
     dorsalExtra = `<path d="M196 54 C212 50 226 54 234 66 C224 64 214 64 206 68 Z" fill="${p.fin}"/>`;
   } else {
     const b = (d: string) => `<path d="${d}" fill="${bar}" stroke="${edge}" stroke-width="2.5"/>`;
-    overlay =
-      b('M96 58 C90 78 90 100 96 124 C104 127 111 127 117 124 C111 100 111 80 117 58 C110 55 102 55 96 58 Z') +
-      b('M150 51 C144 68 142 82 148 95 C142 108 144 124 152 139 C162 142 171 141 179 137 C173 122 173 108 178 96 C172 84 172 68 178 53 C168 49 158 49 150 51 Z') +
-      b('M206 76 C202 88 202 102 206 116 C212 120 219 121 225 118 C222 106 222 90 225 80 C219 76 212 75 206 76 Z');
+    overlay = b('M96 58 C90 78 90 100 96 124 C104 127 111 127 117 124 C111 100 111 80 117 58 C110 55 102 55 96 58 Z');
+    // o.misbar: the middle bar stops halfway and the tail bar is missing.
+    overlay += o['misbar']
+      ? b('M150 51 C144 66 143 78 147 88 C156 92 166 92 175 88 C172 76 172 64 178 53 C168 49 158 49 150 51 Z')
+      : b('M150 51 C144 68 142 82 148 95 C142 108 144 124 152 139 C162 142 171 141 179 137 C173 122 173 108 178 96 C172 84 172 68 178 53 C168 49 158 49 150 51 Z') +
+        b('M206 76 C202 88 202 102 206 116 C212 120 219 121 225 118 C222 106 222 90 225 80 C219 76 212 75 206 76 Z');
   }
   return `${svgOpen('reef')}
   <defs>${grad(uid, p.back, p.mid, p.belly)}</defs>
@@ -241,8 +244,14 @@ export const reef: PlanBuilder = (uid, p, o = {}) => {
 // pelagic — tunas & mackerels: fusiform, sickle fins, finlets, crescent tail.
 
 export const pelagic: PlanBuilder = (uid, p, o = {}) => {
-  void o;
   const accent = p.accent ?? p.fin;
+  // o.longfin: the very long second dorsal and anal fins of big yellowfin.
+  const dorsal2 = o['longfin']
+    ? 'M172 60 C186 40 204 20 230 4 C214 28 198 50 188 64 C182 63 177 62 172 60 Z'
+    : 'M172 60 C182 46 196 38 212 34 C203 48 194 58 188 64 C182 63 177 62 172 60 Z';
+  const anal = o['longfin']
+    ? 'M186 116 C200 136 220 156 246 172 C230 148 212 126 200 112 C195 114 190 115 186 116 Z'
+    : 'M186 116 C196 130 210 140 226 144 C216 130 207 120 200 112 C195 114 190 115 186 116 Z';
   let finlets = '';
   for (let i = 0; i < 5; i++) {
     const x = 214 + i * 10, y = 66 + i * 3.6;
@@ -253,8 +262,8 @@ export const pelagic: PlanBuilder = (uid, p, o = {}) => {
   return `${svgOpen('pelagic')}
   <defs>${grad(uid, p.back, p.mid, p.belly)}</defs>
   <path d="M264 94 C276 84 288 68 296 48 C298 64 294 82 286 95 L286 97 C294 110 298 128 296 144 C288 124 276 108 264 98 Z" fill="${p.fin}"/>
-  <path d="M172 60 C182 46 196 38 212 34 C203 48 194 58 188 64 C182 63 177 62 172 60 Z" fill="${accent}"/>
-  <path d="M186 116 C196 130 210 140 226 144 C216 130 207 120 200 112 C195 114 190 115 186 116 Z" fill="${accent}"/>
+  <path d="${dorsal2}" fill="${accent}"/>
+  <path d="${anal}" fill="${accent}"/>
   ${finlets}
   <path d="M122 62 L130 44 C136 50 140 56 143 61 Z" fill="${p.fin}"/>
   <path d="M20 96 C42 76 84 64 132 62 C176 60 216 70 246 84 C254 88 260 91 264 94 L264 98 C258 102 252 105 244 107 C210 116 168 120 128 116 C84 112 44 106 20 96 Z" fill="url(#${uid}-b)"/>
@@ -281,6 +290,9 @@ export function pike(uid: string, p: Palette, o: PlanOpts = {}): string {
   if (cuda) {
     marks = [[128, 100], [156, 104], [184, 99], [210, 104], [232, 99], [142, 92], [198, 92]]
       .map(([x, y], i) => `<ellipse cx="${x}" cy="${y}" rx="${6 + (i % 2) * 2}" ry="4" fill="${mark}" opacity="0.65"/>`).join('');
+  } else if (o.vbars) {
+    marks = [104, 122, 140, 158, 176, 194, 212, 230]
+      .map((x, i) => `<path d="M${x} ${71 + i} q4 ${16 - i / 2} 0 ${32 - i * 1.5}" stroke="${bar}" stroke-width="6" fill="none" opacity="0.6" stroke-linecap="round"/>`).join('');
   } else {
     const rows = [];
     for (let r = 0; r < 3; r++) for (let i = 0; i < 9; i++) {
@@ -477,6 +489,7 @@ function pal(p: Palette) {
 }
 
 /* ---------- 1. heavy — Red Drum / Atlantic Cod / Red Snapper / Goliath Grouper ---------- */
+// o.tailSpot: one ocellus, or 'multi' for a row of them (multi-spot red drum).
 export function heavy(uid: string, p: Palette, o: PlanOpts = {}): string {
   const c = pal(p);
   const dorsal = o.triDorsal
@@ -493,9 +506,10 @@ export function heavy(uid: string, p: Palette, o: PlanOpts = {}): string {
     ? `<path d="M47 105 C46 111 44 116 41 121" fill="none" stroke="${c.edge}" stroke-width="2.2" stroke-linecap="round"/>
        <path d="M62 68 C110 56 180 60 250 90" fill="none" stroke="${c.bar}" stroke-width="3" opacity="0.7" stroke-linecap="round"/>`
     : '';
-  const tailSpot = o.tailSpot
-    ? `<circle cx="238" cy="88" r="8.5" fill="${c.belly}" opacity="0.9"/><circle cx="238" cy="88" r="5.5" fill="${c.edge}"/>`
-    : '';
+  const spot = ([x, y, r]: number[]) => `<circle cx="${x}" cy="${y}" r="${r! + 3}" fill="${c.belly}" opacity="0.9"/><circle cx="${x}" cy="${y}" r="${r}" fill="${c.edge}"/>`;
+  const tailSpot = o.tailSpot === 'multi'
+    ? [[238, 88, 5.5], [222, 78, 4.5], [214, 100, 4], [200, 86, 3.5], [186, 74, 3]].map(spot).join('')
+    : o.tailSpot ? spot([238, 88, 5.5]) : '';
   const mouth = o.grouper
     ? `<path d="M31 90 C44 97 58 101 72 102" fill="none" stroke="${c.edge}" stroke-width="3.5" stroke-linecap="round"/>
        <path d="M33 100 C42 104 52 106 62 107" fill="none" stroke="${c.mark}" stroke-width="2" opacity="0.7" stroke-linecap="round"/>`
@@ -551,16 +565,23 @@ export function flatfish(uid: string, p: Palette, _o: PlanOpts = {}): string {
 }
 
 /* ---------- 3. mahi — Mahi-Mahi ---------- */
-export function mahi(uid: string, p: Palette, _o: PlanOpts = {}): string {
+export function mahi(uid: string, p: Palette, o: PlanOpts = {}): string {
   const c = pal(p);
+  // Default is the bull's blunt, near-vertical forehead; o.cow slopes it back.
+  const dorsal = o.cow
+    ? 'M76 46 C80 28 92 20 110 22 C152 30 204 58 248 86 L248 90 C196 64 140 48 106 46 C94 45 84 45 76 46 Z'
+    : 'M52 44 C54 24 68 14 90 16 C142 22 198 52 248 86 L248 90 C196 64 140 46 94 42 C78 41 64 42 52 44 Z';
+  const body = o.cow
+    ? 'M76 46 C58 52 46 68 42 86 C42 95 44 100 46 104 C58 118 86 127 122 125 C166 121 212 107 250 96 L250 88 C212 72 166 54 122 48 C104 46 90 44 76 46 Z'
+    : 'M46 42 C42 62 41 84 46 104 C58 118 86 127 122 125 C166 121 212 107 250 96 L250 88 C212 72 166 54 122 48 C92 44 62 40 46 42 Z';
   const spots = [[92, 66, 2], [116, 60, 1.7], [138, 66, 2.2], [162, 62, 1.6], [184, 70, 2], [206, 74, 1.7], [104, 82, 1.6], [130, 86, 2], [156, 82, 1.7], [180, 88, 2.1], [204, 88, 1.5], [88, 96, 1.8], [120, 100, 1.6], [150, 100, 2], [226, 82, 1.6]]
     .map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${c.mark}" opacity="0.8"/>`).join('');
   return `<svg viewBox="0 0 320 180" role="img" aria-label="mahi-mahi">
   <defs>${grad(uid, c.back, c.mid, c.belly)}</defs>
   <path d="M250 87 C264 76 280 61 294 44 C288 65 285 80 285 91 C285 103 288 118 294 136 C280 118 264 103 250 97 Z" fill="${c.fin}"/>
-  <path d="M52 44 C54 24 68 14 90 16 C142 22 198 52 248 86 L248 90 C196 64 140 46 94 42 C78 41 64 42 52 44 Z" fill="${c.fin}" opacity="0.94"/>
+  <path d="${dorsal}" fill="${c.fin}" opacity="0.94"/>
   <path d="M146 121 C168 135 212 126 248 99 L248 96 C214 112 180 119 146 117 Z" fill="${c.fin}" opacity="0.9"/>
-  <path d="M46 42 C42 62 41 84 46 104 C58 118 86 127 122 125 C166 121 212 107 250 96 L250 88 C212 72 166 54 122 48 C92 44 62 40 46 42 Z" fill="url(#${uid}-b)"/>
+  <path d="${body}" fill="url(#${uid}-b)"/>
   <path d="M52 102 C100 119 172 119 244 96" fill="none" stroke="${c.accent}" stroke-width="8" opacity="0.5" stroke-linecap="round"/>
   ${spots}
   <path d="M84 90 C100 92 112 100 118 112 C106 112 94 106 85 98 Z" fill="${c.fin}"/>
