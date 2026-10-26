@@ -9,7 +9,8 @@ import type { ClaudeTranscript, ClaudeUsageRow } from './reefTypes.ts';
 // Tails ~/.claude/projects/**/*.jsonl incrementally: cc_files remembers a byte
 // offset per file, only appended complete lines are parsed, and
 // assistant-message usage upserts into cc_usage keyed by request_id (so
-// streaming re-emits dedupe themselves).
+// streaming re-emits dedupe themselves, and a forked session's copied
+// history stays with the session that recorded it first).
 
 const CHUNK_BYTES = 1024 * 1024;
 const MAX_RECORD_BYTES = 16 * CHUNK_BYTES;

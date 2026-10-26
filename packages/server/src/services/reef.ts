@@ -53,10 +53,16 @@ export function storeClaudeBatch(
   db.exec('BEGIN');
   try {
     const upsert = db.prepare(
-      `INSERT OR REPLACE INTO cc_usage
+      // First owner wins: a forked session copies its parent's request IDs, and must not take them over.
+      `INSERT INTO cc_usage
        (request_id, ts, session_id, project, model, input_tokens, output_tokens,
         cache_read_tokens, cache_w5m_tokens, cache_w1h_tokens, cost, cost_known)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(request_id) DO UPDATE SET model = excluded.model,
+         input_tokens = excluded.input_tokens, output_tokens = excluded.output_tokens,
+         cache_read_tokens = excluded.cache_read_tokens, cache_w5m_tokens = excluded.cache_w5m_tokens,
+         cache_w1h_tokens = excluded.cache_w1h_tokens, cost = excluded.cost, cost_known = excluded.cost_known
+       WHERE cc_usage.session_id = excluded.session_id`,
     );
     for (const u of rows.usage) {
       const cost = estimateCcCost(u.model, {
@@ -64,8 +70,9 @@ export function storeClaudeBatch(
         cacheW5m: u.cacheW5m, cacheW1h: u.cacheW1h,
       });
       if (cost === null) unpriced.add(u.model);
-      upsert.run(u.requestId, u.ts, u.sessionId, u.project, u.model,
+      const result = upsert.run(u.requestId, u.ts, u.sessionId, u.project, u.model,
         u.input, u.output, u.cacheRead, u.cacheW5m, u.cacheW1h, cost ?? 0, cost === null ? 0 : 1);
+      if (result.changes === 0) continue; // another session already owns this request
       touched.add(u.sessionId);
       messages++;
     }
