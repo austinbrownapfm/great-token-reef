@@ -110,6 +110,18 @@ export function claudeLoginDetected(exec: ExecFileSync = execFileSync, home: str
   }
 }
 
+/** Remembers the probe for ttlMs so every `GET /api/connect` does not wait on the Keychain. */
+export function cachedClaudeLoginDetected(
+  detect: () => boolean = () => claudeLoginDetected(), ttlMs = 60_000, now: () => number = Date.now,
+): () => boolean {
+  let cached: { value: boolean; at: number } | null = null;
+  return () => {
+    const t = now();
+    if (cached === null || t - cached.at >= ttlMs) cached = { value: detect(), at: t };
+    return cached.value;
+  };
+}
+
 export async function refreshOfficialLimits(db: Db): Promise<OfficialLimits> {
   const candidates = credentialCandidates();
   let creds: OauthCreds | null = null;

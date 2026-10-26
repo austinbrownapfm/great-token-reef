@@ -49,7 +49,7 @@ export function makeJiraClient(db: Db, read: KeychainRead): JiraClient | null {
   if (baseUrl === null || email === null) return null;
   const read1 = tryRead(read, 'jira-api-token');
   if ('error' in read1) return failing(read1.error);
-  if (read1.token === null) return null;
+  if (read1.token === null) return failing(new Error('Jira API token not found in the macOS Keychain'));
   const apiToken = read1.token;
   return { fetchDone: (since) => fetchDoneTickets({ baseUrl, email, apiToken }, since) };
 }

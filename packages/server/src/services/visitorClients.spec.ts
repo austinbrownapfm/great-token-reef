@@ -30,6 +30,15 @@ describe('visitor clients and the Keychain', () => {
     expect(JSON.stringify(visitorErrors(db))).toContain('jira-api-token');
   });
 
+  it('Jira configured + token missing from the Keychain surfaces an error, not a quiet success', async () => {
+    const db = fixtureDb();
+    setSetting(db, 'jiraBaseUrl', 'https://x.atlassian.net');
+    setSetting(db, 'jiraEmail', 'a@b.c');
+    const syncer = new VisitorSyncer({ db, github: () => null, jira: () => makeJiraClient(db, () => null) });
+    await syncer.sync();
+    expect(JSON.stringify(visitorErrors(db))).toContain('Jira API token not found in the macOS Keychain');
+  });
+
   it('Jira not configured never touches the Keychain', () => {
     const db = fixtureDb();
     const read = vi.fn(() => 'tok');

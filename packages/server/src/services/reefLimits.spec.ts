@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { claudeLoginDetected, credentialCandidates, mapOauthUsage } from './reefLimits.ts';
+import { cachedClaudeLoginDetected, claudeLoginDetected, credentialCandidates, mapOauthUsage } from './reefLimits.ts';
 
 describe('mapOauthUsage', () => {
   it('maps every window and builds the plan label', () => {
@@ -104,5 +104,21 @@ describe('credentialCandidates', () => {
       throw new Error('exit 44');
     });
     expect(() => credentialCandidates(exec, home)).toThrow(/no Claude Code credentials/);
+  });
+});
+
+describe('cachedClaudeLoginDetected', () => {
+  it('probes once per ttl and again after it expires', () => {
+    let t = 0;
+    const detect = vi.fn(() => true);
+    const cached = cachedClaudeLoginDetected(detect, 60_000, () => t);
+    expect(cached()).toBe(true);
+    t = 59_999;
+    expect(cached()).toBe(true);
+    expect(detect).toHaveBeenCalledTimes(1);
+    detect.mockReturnValue(false);
+    t = 60_000;
+    expect(cached()).toBe(false);
+    expect(detect).toHaveBeenCalledTimes(2);
   });
 });

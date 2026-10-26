@@ -8,7 +8,7 @@ import { Bus } from './services/bus.ts';
 import { ClaudeUsageScanner } from './services/claudeUsageScanner.ts';
 import { CodexUsageScanner } from './services/codexUsageScanner.ts';
 import { keychainDelete, keychainGet, keychainSet } from './services/keychain.ts';
-import { claudeLoginDetected } from './services/reefLimits.ts';
+import { cachedClaudeLoginDetected } from './services/reefLimits.ts';
 import type { ConnectDeps } from './services/connect.ts';
 import { ghCliToken, githubLogin } from './services/github.ts';
 import { jiraMyself } from './services/jira.ts';
@@ -34,7 +34,7 @@ const connect: ConnectDeps = {
   githubLogin: (token) => githubLogin(token),
   ghToken: () => ghCliToken(),
   jiraMyself: (cfg) => jiraMyself(cfg),
-  claudeDetected: () => claudeLoginDetected(),
+  claudeDetected: cachedClaudeLoginDetected(),
   onChange: () => {
     visitorSyncer.sync().catch((err: unknown) => console.error(`[visitors] sync failed: ${(err as Error).message}`));
     bus.emit('reef');
