@@ -1,7 +1,7 @@
 import { Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import { AppHeader } from './components/AppHeader';
 import { ConnectView } from './views/ConnectView';
-import { ReefView } from './views/ReefView';
+import { ReefView } from './views/reef/ReefView';
 import { parseStormLevel, type StormLevel } from './lib/tankEnv';
 import { parseDevBackdrop, parseDevDecor } from './lib/tankDecor';
 
