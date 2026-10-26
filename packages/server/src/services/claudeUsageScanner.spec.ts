@@ -233,6 +233,43 @@ describe('reef scanner', () => {
     expect((db.prepare('SELECT COUNT(*) AS n FROM cc_usage').get() as { n: number }).n).toBe(2);
   });
 
+  describe('forked sessions', () => {
+    // `claude --resume <id> --fork-session` copies the parent's lines verbatim
+    // under the fork's sessionId (reproduced on Claude Code 2.1.310).
+    const history = (sessionId: string) => {
+      let content = '';
+      for (let i = 0; i < 3; i++) content += assistantLine({ requestId: `r${i}`, sessionId, ts: NOW - 600 + i, cacheRead: 900_000 });
+      return content;
+    };
+    const ownerOf = (db: ReturnType<typeof freshDb>) =>
+      Object.fromEntries((db.prepare('SELECT request_id, session_id FROM cc_usage ORDER BY request_id').all() as
+        { request_id: string; session_id: string }[]).map((r) => [r.request_id, r.session_id]));
+    const catches = (db: ReturnType<typeof freshDb>) =>
+      db.prepare('SELECT session_id, COUNT(*) AS n FROM cc_catches GROUP BY session_id ORDER BY session_id').all();
+
+    it('keeps copied history with the parent and earns the fork nothing for it', () => {
+      const db = freshDb();
+      const scanner = new ClaudeUsageScanner({ db, dir });
+      writeFileSync(join(dir, 'proj', 'parent.jsonl'), history('parent'));
+      expect(scanner.scan().catches).toBe(1);
+
+      writeFileSync(join(dir, 'proj', 'fork.jsonl'),
+        history('fork') + assistantLine({ requestId: 'f1', sessionId: 'fork', ts: NOW - 500, cacheRead: 100_000 }));
+      expect(scanner.scan()).toMatchObject({ messages: 1, catches: 0 });
+      expect(ownerOf(db)).toEqual({ f1: 'fork', r0: 'parent', r1: 'parent', r2: 'parent' });
+      expect(catches(db)).toEqual([{ session_id: 'parent', n: 1 }]);
+    });
+
+    it('awards the shared history once when a rebuild finds both files together', () => {
+      const db = freshDb();
+      writeFileSync(join(dir, 'proj', 'a.jsonl'), history('sess-a'));
+      writeFileSync(join(dir, 'proj', 'b.jsonl'), history('sess-b'));
+      new ClaudeUsageScanner({ db, dir }).scan();
+      expect(new Set(Object.values(ownerOf(db))).size).toBe(1);
+      expect(db.prepare('SELECT COUNT(*) AS n FROM cc_catches').get()).toEqual({ n: 1 });
+    });
+  });
+
   it('dedupes by requestId across re-emits and rewritten files', () => {
     const db = freshDb();
     const scanner = new ClaudeUsageScanner({ db, dir });
