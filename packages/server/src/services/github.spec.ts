@@ -96,6 +96,23 @@ describe('fetchOpenPrs', () => {
   });
 });
 
+describe('response shape', () => {
+  const serve = (body: unknown) => (async () => new Response(JSON.stringify(body), { status: 200 })) as unknown as typeof fetch;
+
+  it('skips non-PR search results', async () => {
+    const { prs } = await fetchOpenPrs('tok', [], [], serve(page([{}, null, node(3, 'SUCCESS')], false)));
+    expect(prs.map((p) => p.number)).toEqual([3]);
+  });
+
+  it('names the field when GitHub returns an unexpected shape, never a TypeError', async () => {
+    const bad = { ...node(4, null), reviews: { nodes: [{ author: null, state: 'MAYBE' }] } };
+    await expect(fetchOpenPrs('tok', [], [], serve(page([bad], false))))
+      .rejects.toThrow(/^\[github\] unexpected response at reviews\.nodes\.0\.state/);
+    await expect(fetchOpenPrs('tok', [], [], serve({ data: { search: null } })))
+      .rejects.toThrow(/^\[github\] unexpected response at viewer/);
+  });
+});
+
 describe('fetchMergedPrs', () => {
   const merged = (repo: string, number: number, mergedAt = '2026-10-21T10:00:00Z') => ({
     repository: { name: repo, owner: { login: 'echo' } }, number, title: `PR ${number}`, url: `https://github.com/echo/${repo}/pull/${number}`, mergedAt,

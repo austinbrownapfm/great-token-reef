@@ -264,7 +264,7 @@ export function useSwimLoop(
       paint(performance.now() / 1000);
     }
     return () => cancelAnimationFrame(raf);
-  }, [active, specs, bounds, bubbleLayer, flakeLayer, plaqueEl, plaqueId, hud]);
+  }, [active, specs, bounds, motion, bubbleLayer, flakeLayer, plaqueEl, plaqueId, hud]);
 
   return { fishRefs, simRef, feed };
 }

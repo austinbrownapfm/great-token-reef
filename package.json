@@ -11,6 +11,15 @@
     "start": "pnpm --filter @gtr/web build && pnpm --filter @gtr/server start",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm --filter @gtr/web build",
     "icons": "sh scripts/icons.sh"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.13.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "typescript-eslint": "^8.72.0"
   }
 }

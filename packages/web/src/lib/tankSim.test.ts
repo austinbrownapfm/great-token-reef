@@ -105,7 +105,7 @@ describe('tankSim', () => {
   it('turns by decelerating and passing scaleX through zero, never snapping', () => {
     let turns = 0;
     let minAbsFlip = 1;
-    let prevFlip = new Map<string, number>();
+    const prevFlip = new Map<string, number>();
     run(120, 11, 1 / 60, (fish) => {
       for (const s of fish) {
         const prev = prevFlip.get(s.id);

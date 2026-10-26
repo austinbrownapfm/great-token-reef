@@ -277,7 +277,7 @@ export const pelagic: PlanBuilder = (uid, p, o = {}) => {
 export function pike(uid: string, p: Palette, o: PlanOpts = {}): string {
   const { back, mid, belly, fin, mark, bar = p.belly, iris = '#c9a23c', pupil = '#0c0d0a' } = p;
   const cuda = o.snout === 'barracuda';
-  let marks = '';
+  let marks: string;
   if (cuda) {
     marks = [[128, 100], [156, 104], [184, 99], [210, 104], [232, 99], [142, 92], [198, 92]]
       .map(([x, y], i) => `<ellipse cx="${x}" cy="${y}" rx="${6 + (i % 2) * 2}" ry="4" fill="${mark}" opacity="0.65"/>`).join('');
@@ -325,7 +325,7 @@ export function pike(uid: string, p: Palette, o: PlanOpts = {}): string {
 }
 
 /* ---------- Alligator Gar ---------- */
-export function gar(uid: string, p: Palette, o: PlanOpts = {}): string {
+export function gar(uid: string, p: Palette, _o: PlanOpts = {}): string {
   const { back, mid, belly, fin, mark, iris = '#8a7440', pupil = '#0c0d0a' } = p;
   const body = `M14 87 C38 82 62 78 90 73 C148 65 210 68 250 80 L250 98 C210 109 148 112 90 106 C62 103 38 96 14 91 Z`;
   const hatch = [];
@@ -396,7 +396,7 @@ export function carp(uid: string, p: Palette, o: PlanOpts = {}): string {
 }
 
 /* ---------- Lake Sturgeon ---------- */
-export function sturgeon(uid: string, p: Palette, o: PlanOpts = {}): string {
+export function sturgeon(uid: string, p: Palette, _o: PlanOpts = {}): string {
   const { back, mid, belly, fin, mark, edge = p.mark, iris = '#6a5a38', pupil = '#0c0d0a' } = p;
   const dorsalScutes = [], flankScutes = [];
   const backline = [[72, 74.5], [94, 71.5], [116, 69.5], [138, 68.5], [160, 68.5], [182, 70], [204, 72.5], [224, 76]];
@@ -518,7 +518,7 @@ export function heavy(uid: string, p: Palette, o: PlanOpts = {}): string {
 }
 
 /* ---------- 2. flatfish — Pacific Halibut / Summer Flounder ---------- */
-export function flatfish(uid: string, p: Palette, o: PlanOpts = {}): string {
+export function flatfish(uid: string, p: Palette, _o: PlanOpts = {}): string {
   const c = pal(p);
   // fringe rays: short strokes across the fin band around the oval (skip head + tail gaps)
   const rays = [];
@@ -551,7 +551,7 @@ export function flatfish(uid: string, p: Palette, o: PlanOpts = {}): string {
 }
 
 /* ---------- 3. mahi — Mahi-Mahi ---------- */
-export function mahi(uid: string, p: Palette, o: PlanOpts = {}): string {
+export function mahi(uid: string, p: Palette, _o: PlanOpts = {}): string {
   const c = pal(p);
   const spots = [[92, 66, 2], [116, 60, 1.7], [138, 66, 2.2], [162, 62, 1.6], [184, 70, 2], [206, 74, 1.7], [104, 82, 1.6], [130, 86, 2], [156, 82, 1.7], [180, 88, 2.1], [204, 88, 1.5], [88, 96, 1.8], [120, 100, 1.6], [150, 100, 2], [226, 82, 1.6]]
     .map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${c.mark}" opacity="0.8"/>`).join('');
@@ -678,7 +678,7 @@ function fanFin(cx: number, cy: number, r: number, a0: number, a1: number, finC:
 }
 
 /* ---------- Red Lionfish ---------- */
-export function lionfish(uid: string, p: Palette, o: PlanOpts = {}): string {
+export function lionfish(uid: string, p: Palette, _o: PlanOpts = {}): string {
   const { back, mid, belly, fin, mark, accent = p.fin, bar = belly, edge = mark,
           iris = '#c2452e', pupil = '#0c0d0a' } = p;
   const body = 'M56 100 C66 76 96 62 132 62 C168 62 196 74 208 90 L208 110 C196 122 168 132 132 130 C98 128 70 116 56 106 Z';
@@ -735,7 +735,7 @@ export function lionfish(uid: string, p: Palette, o: PlanOpts = {}): string {
 
 /* ---------- Porcupine Pufferfish ---------- */
 export function puffer(uid: string, p: Palette, o: PlanOpts = {}): string {
-  const { back, mid, belly, fin, mark, accent = p.fin, bar = belly, edge = mark,
+  const { back, mid, belly, fin, mark, bar = belly, edge = mark,
           iris = '#c9a23c', pupil = '#0c0d0a' } = p;
   const inf = !!o.inflated;
   const cx = 152, cy = 94, rx = inf ? 58 : 58, ry = inf ? 56 : 44;
@@ -744,7 +744,6 @@ export function puffer(uid: string, p: Palette, o: PlanOpts = {}): string {
   if (inf) {
     for (let i = 0; i < 22; i++) {
       const a = -180 + i * (360 / 22) + 8;
-      const [bx, by] = pt(cx, cy, 1, a);
       const sx = cx + (rx - 2) * Math.cos(a * Math.PI / 180), sy = cy + (ry - 2) * Math.sin(a * Math.PI / 180);
       const ox = sx - cx, oy = sy - cy, ol = Math.hypot(ox, oy);
       const ux = ox / ol, uy = oy / ol, tx = -uy, ty = ux;
@@ -787,7 +786,7 @@ export type SharkPart = 'defs' | 'tail' | 'dorsal' | 'body' | 'marks' | 'gills' 
 export type SharkParts = Partial<Record<SharkPart, (uid: string, p: Palette) => string>>;
 
 export function shark(uid: string, p: Palette, o: PlanOpts = {}): string {
-  const { back, mid, belly, fin, mark, accent = p.fin, bar = belly, edge = mark,
+  const { back, mid, belly, fin, mark, edge = mark,
           iris = '#3d3a2a', pupil = '#0c0d0a' } = p;
   const parts = (o.parts ?? {}) as SharkParts;
   const part = (k: SharkPart, d: string) => parts[k]?.(uid, p) ?? d;
@@ -825,8 +824,8 @@ export function shark(uid: string, p: Palette, o: PlanOpts = {}): string {
 }
 
 /* ---------- Giant Manta Ray ---------- */
-export function ray(uid: string, p: Palette, o: PlanOpts = {}): string {
-  const { back, mid, belly, fin, mark, accent = p.mid, bar = belly, edge = mark,
+export function ray(uid: string, p: Palette, _o: PlanOpts = {}): string {
+  const { back, mid, belly, fin, mark, bar = belly, edge = mark,
           iris = '#3d3a2a', pupil = '#0c0d0a' } = p;
   return `<svg viewBox="0 0 320 180" role="img" aria-label="Giant Manta Ray">
   <defs>${grad(uid, back, mid, belly)}</defs>
@@ -855,7 +854,7 @@ export function ray(uid: string, p: Palette, o: PlanOpts = {}): string {
 }
 
 /* ---------- Lined Seahorse ---------- */
-export function seahorse(uid: string, p: Palette, o: PlanOpts = {}): string {
+export function seahorse(uid: string, p: Palette, _o: PlanOpts = {}): string {
   const { back, mid, belly, fin, mark, accent = p.fin, bar = belly, edge = mark,
           iris = '#7c5a22', pupil = '#0c0d0a' } = p;
   const body = `M100 48 L128 44 C132 34 141 27 150 29 L148 39 C158 44 165 55 167 68 C177 82 183 98 181 113 C179 130 171 143 162 150 C160 158 153 164 145 161 C137 158 136 148 143 143 C149 139 153 133 152 126 C142 120 134 110 132 98 C130 86 132 74 138 65 C133 63 128 60 124 57 L100 57 C95 55 95 50 100 48 Z`;
