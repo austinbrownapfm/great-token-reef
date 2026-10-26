@@ -1,36 +1,37 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearch } from '@tanstack/react-router';
-import { ENTRIES, SPECIES_DEFS, LEGENDARY_ID_BASE, LEGENDARY_DEFS } from '@gtr/shared';
+import { useSearch } from '@tanstack/react-router';
+import { LEGENDARY_ID_BASE, LEGENDARY_DEFS } from '@gtr/shared';
 import { api, type ReefPending } from '../lib/api';
-import { formatDate } from '../lib/format';
 import { allSpecies } from '../lib/legendaryRows';
-import { decorAnchor, devDecor, placeDecor, speciesSetOf, visibleRewards, type DecorPlacement } from '../lib/tankDecor';
-import { bigness, tankWidth } from '../lib/fishSize';
-import { depthFor, habitForSpecies, speedFor, type Anchors } from '../lib/tankHabits';
-import { bubbleCount, snapBubbleRate } from '../lib/tankEnv';
-import { hudReserve, isPlaqueEscape, placePlaque, plaqueFor, shouldClosePlaque } from '../lib/tankPlaque';
+import { devDecor, placeDecor, speciesSetOf, visibleRewards } from '../lib/tankDecor';
+import { bubbleCount } from '../lib/tankEnv';
 import {
-  FISH_CAPS, RARITY_RANK, pickRoster, picksSettled, rosterFromPick, seedPick, seedReady, type FishView, type RosterFish,
+  FISH_CAPS, pickRoster, picksSettled, rosterFromPick, seedPick, seedReady, type FishView,
 } from '../lib/tankPicks';
-import { fishKey, maskCollection, queueUnknown, releaseGates, releasedRows } from '../lib/tankRelease';
+import { maskCollection, queueUnknown, releaseGates, releasedRows } from '../lib/tankRelease';
+import { anchorsFor, bubblesFor, decorFor, planktonFor, populationFor, specFor } from '../lib/tankScenery';
 import { uiEvent } from '../lib/telemetry';
 import { tankNotices } from '../lib/tankNotices';
 import { emptyTankMessage } from '../lib/tankLines';
-import { hold, puff as puffFish, type Bounds, type Swimmer, type SwimmerSpec } from '../lib/tankSim';
+import type { SwimmerSpec } from '../lib/tankSim';
 import { Fish } from './Fish';
 import { PrHud, QuotaHud } from './ReefWidget';
 import { TankArrange, useTankArrange } from './TankArrange';
 import { TankBackdrop, TankDecor } from './TankDecor';
+import { TankHoverCard } from './TankHoverCard';
 import { TankRelease } from './TankRelease';
 import { TankLines } from './TankLines';
 import { TankNoticeChip, useMinuteClock } from './TankNotices';
 import { TankPlaque } from './TankPlaque';
-import { TankRockLips, TankRocks, rocksFor, type Rock } from './TankRocks';
+import { TankRockLips, TankRocks, rocksFor } from './TankRocks';
 import { TankWeather } from './TankWeather';
+import { useTankHud } from './useTankHud';
 import { useTankLines } from './useTankLines';
 import { useLinger, usePrefersReducedMotion, useTankEnv } from './useTankEnv';
+import { useTankPlaque } from './useTankPlaque';
 import { useTankRelease } from './useTankRelease';
+import { useCausticSpeed, useSnappedBubbleRate, useWeedClock } from './useTankScenery';
 import { useSwimLoop } from './useSwimLoop';
 import { useTankFullscreen, useTankLayout } from './useTankFullscreen';
 
@@ -50,7 +51,6 @@ export function Tank({ onHeldRewards }: {
   const fish = useQuery({ queryKey: ['reef', 'fish'], queryFn: api.reef.fish, retry: false });
   const queryClient = useQueryClient();
   const { reefDecor, reefBackdrop, arrange, reefLegends } = useSearch({ strict: false }) as { reefDecor?: string; reefBackdrop?: string; arrange?: 1; reefLegends?: 'preview' };
-  const navigate = useNavigate({ from: '/' });
   const tankRef = useRef<HTMLDivElement>(null);
   const bubbleLayer = useRef<HTMLDivElement>(null);
   const flakeLayer = useRef<HTMLDivElement>(null);
@@ -145,24 +145,7 @@ export function Tank({ onHeldRewards }: {
   const anchors = useMemo(() => anchorsFor(decor, rocks, pieces, bounds), [decor, rocks, pieces, bounds]);
   const plaqueEl = useRef<HTMLDivElement>(null);
   const plaqueIdRef = useRef<string | null>(null);
-  const hudRef = useRef<HTMLDivElement | null>(null);
-  const [hudBottom, setHudBottom] = useState(0);
-  // The top HUD band's height changes as PR cards load, so the waterline follows it live.
-  const hudObserver = useRef<ResizeObserver | null>(null);
-  const setHudEl = useCallback((el: HTMLDivElement | null) => {
-    hudObserver.current?.disconnect();
-    hudRef.current = el;
-    // A stale height would set the next fullscreen entry's waterline and fish ceiling before the band is measured.
-    if (!el) {
-      setHudBottom(0);
-      return;
-    }
-    const measure = () => setHudBottom(Math.round(el.offsetTop + el.offsetHeight));
-    hudObserver.current = new ResizeObserver(measure);
-    hudObserver.current.observe(el);
-    measure();
-  }, []);
-  useEffect(() => () => hudObserver.current?.disconnect(), []);
+  const { hudRef, hudBottom, setHudEl } = useTankHud();
   // In fullscreen the waterline sits under the HUD band, which stays put while arranging.
   const surfaceY = fullscreen ? (hudBottom > 0 ? hudBottom + 22 : 26) : 14;
   // The sim stops bellies on the drawn sand, not a fixed margin; in fullscreen open-ocean fish keep below the waterline under the band.
@@ -178,94 +161,19 @@ export function Tank({ onHeldRewards }: {
     plaqueEl, plaqueIdRef, hudRef, sway,
   );
   useWeedClock(tankRef, decor.weeds);
-  const [hovered, setHovered] = useState<string | null>(null);
-  const hoveredRef = useRef<string | null>(null);
-  const [plaque, setPlaque] = useState<string | null>(null);
+  const masked = useMemo(
+    () => releasedRows(species, release.hidden, release.bests, queueHeld),
+    [queueHeld, species, release.hidden, release.bests],
+  );
+  const {
+    hovered, plaque, hoveredFish, hoveredSwimmer, plaqueFish, plaqueText, refocusing,
+    setHover, openPlaque, closePlaque, placePlaqueNow, openDex,
+  } = useTankPlaque({
+    tankRef, simRef, fishRefs, plaqueEl, plaqueIdRef, hudRef, bounds, fullscreen, toggle, arranging, roster, masked,
+  });
   const { lines, jerking } = useTankLines();
   const emptyMessage = emptyTankMessage({ waiting: release.waiting, activeLines: lines.length });
 
-  // A fish is held while hovered or while its plaque is open.
-  const applyHolds = useCallback(() => {
-    const now = performance.now() / 1000;
-    for (const s of simRef.current) hold(s, s.id === hoveredRef.current || s.id === plaqueIdRef.current, now);
-  }, [simRef]);
-  const setHover = (id: string | null) => {
-    hoveredRef.current = id;
-    applyHolds();
-    setHovered(id);
-    if (id) uiEvent('reef.tank.fish.hover', id.split('-')[0]);
-  };
-  const openPlaque = (r: RosterFish, id: string) => {
-    if (arranging) return;
-    if (plaqueIdRef.current !== id) uiEvent('reef.tank.plaque', String(r.species));
-    plaqueIdRef.current = id;
-    setPlaque(id);
-    applyHolds();
-    const s = simRef.current.find((x) => x.id === id);
-    const entry = ENTRIES[r.species];
-    if (s && entry && SPECIES_DEFS[entry.s]?.plan === 'puffer') {
-      puffFish(s, performance.now() / 1000);
-      uiEvent('reef.tank.puffer', String(r.species));
-    }
-  };
-  // A programmatic refocus is not a hover: no hold, no card, no hover event.
-  const refocusing = useRef(false);
-  const closePlaque = useCallback((refocus = false) => {
-    const id = plaqueIdRef.current;
-    plaqueIdRef.current = null;
-    setPlaque(null);
-    applyHolds();
-    const el = refocus && id ? fishRefs.current.get(id) : undefined;
-    if (!el?.isConnected) return;
-    refocusing.current = true;
-    el.focus({ preventScroll: true });
-    refocusing.current = false;
-  }, [applyHolds, fishRefs]);
-  const placePlaqueNow = useCallback(() => {
-    const el = plaqueEl.current;
-    const s = simRef.current.find((x) => x.id === plaqueIdRef.current);
-    if (el && s) placePlaque(el, s, bounds, hudReserve(hudRef.current));
-  }, [simRef, bounds]);
-  const openDex = (species: number) => {
-    uiEvent('reef.tank.plaque.dex', String(species));
-    closePlaque();
-    if (fullscreen) toggle();
-    void navigate({ to: '/', search: { species }, replace: true });
-  };
-  // Capture phase so Esc closes the plaque before it can also leave theater fullscreen.
-  useEffect(() => {
-    if (!plaque) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (!isPlaqueEscape({ key: e.key, defaultPrevented: e.defaultPrevented, target: e.target as Node | null }, tankRef.current, document.body)) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      closePlaque(true);
-    };
-    // Clicks inside the tank go through onTankClick; anywhere else on the page closes the plaque.
-    const onDown = (e: PointerEvent) => {
-      if (shouldClosePlaque(e.target as Node | null, tankRef.current, plaqueEl.current)) closePlaque();
-    };
-    document.addEventListener('keydown', onKey, true);
-    document.addEventListener('pointerdown', onDown);
-    return () => {
-      document.removeEventListener('keydown', onKey, true);
-      document.removeEventListener('pointerdown', onDown);
-    };
-  }, [plaque, closePlaque]);
-  // Leaving fullscreen by any route (theater Esc from behind the overlay, the browser's own Esc) takes the plaque with it.
-  const wasFullscreen = useRef(fullscreen !== null);
-  useEffect(() => {
-    const ended = wasFullscreen.current && fullscreen === null;
-    wasFullscreen.current = fullscreen !== null;
-    if (ended) closePlaque();
-  }, [fullscreen, closePlaque]);
-  // Fish go hands-off while arranging: no hover hold, no plaque.
-  useEffect(() => {
-    if (!arranging) return;
-    hoveredRef.current = null;
-    setHovered(null);
-    closePlaque();
-  }, [arranging, closePlaque]);
   // Only open water feeds (fish, buttons, HUD, plaque are data-reef-nofeed); with a plaque open it only closes it.
   const onTankClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
@@ -293,10 +201,6 @@ export function Tank({ onHeldRewards }: {
     '--reef-sun': String(Number(sun.toFixed(3))),
     '--reef-sun-x': env.phase === 'dusk' ? '82%' : '18%',
   } as React.CSSProperties;
-  const masked = useMemo(
-    () => releasedRows(species, release.hidden, release.bests, queueHeld),
-    [queueHeld, species, release.hidden, release.bests],
-  );
   const silhouettes = useMemo(() => pickRoster(masked, 40).slice(-5), [masked]);
   // First render of a view with no pick saves what the automatic roster shows there, once per view.
   // Fresh collection + pending + picks only, and never mid-release, so pending fish are never seeded.
@@ -336,14 +240,6 @@ export function Tank({ onHeldRewards }: {
     visitorErrors: pending.data?.visitorErrors,
     nowSec,
   });
-  const hoveredFish = hovered ? roster.find((r) => rosterId(r) === hovered) : undefined;
-  const hoveredSwimmer = hovered ? simRef.current.find((s) => s.id === hovered) : undefined;
-  const plaqueFish = plaque ? roster.find((r) => rosterId(r) === plaque) : undefined;
-  const plaqueText = useMemo(() => plaqueFor(plaqueFish?.species, masked), [plaqueFish, masked]);
-  // A fish released away or swum off takes its plaque with it.
-  useEffect(() => {
-    if (plaque && !plaqueText) closePlaque();
-  }, [plaque, plaqueText, closePlaque]);
 
   return (
     <div
@@ -509,7 +405,7 @@ export function Tank({ onHeldRewards }: {
         </div>
       )}
       {!plaque && !arranging && hoveredFish && hoveredSwimmer && (
-        <HoverCard fish={hoveredFish} swimmer={hoveredSwimmer} bounds={bounds} />
+        <TankHoverCard fish={hoveredFish} swimmer={hoveredSwimmer} bounds={bounds} />
       )}
       {plaqueFish && plaqueText && (
         <TankPlaque
@@ -594,144 +490,4 @@ export function Tank({ onHeldRewards }: {
       )}
     </div>
   );
-}
-
-// Chip pinned above the hovered fish (below it when it is near the surface).
-function HoverCard({ fish, swimmer, bounds }: { fish: RosterFish; swimmer: Swimmer; bounds: Bounds }) {
-  const above = swimmer.y > 70;
-  const left = Math.max(8, Math.min(bounds.width - 220, swimmer.x - 100));
-  const top = above ? swimmer.y - swimmer.height / 2 - 58 : swimmer.y + swimmer.height / 2 + 8;
-  return (
-    <div
-      className="pointer-events-none absolute z-30 w-52 rounded-lg bg-black/60 px-3 py-2 text-xs text-white shadow-lg backdrop-blur-sm"
-      style={{ left, top }}
-    >
-      <div className="truncate font-semibold">{fish.shiny ? '✨ ' : ''}{fish.name}</div>
-      <div className="text-white/70">
-        <span className="uppercase">{fish.rarity}</span> · PB {fish.bestSize}cm · ×{fish.count}
-      </div>
-      <div className="truncate text-white/60">
-        First caught {formatDate(fish.firstCaught)}{fish.firstProject ? ` in ${fish.firstProject.split('/').pop()}` : ''}
-      </div>
-    </div>
-  );
-}
-
-export const rosterId = (r: RosterFish) => fishKey(r.species, r.shiny);
-
-// Population scales with tank area: ~8 in the strip, 28 in fullscreen.
-export function populationFor(b: Bounds): number {
-  return Math.max(6, Math.min(28, Math.floor((b.width * b.height) / 30_000)));
-}
-
-// Size, depth and speed from real relative size, then the species habit overrides band and speed.
-function specFor(r: RosterFish, fullscreen: boolean, scale: number): SwimmerSpec {
-  const width = tankWidth(r.species, r.bestSize, fullscreen);
-  const big = Math.min(1, bigness(width, fullscreen));
-  const centre = 0.12 + big * 0.55 + (((r.species * 13) % 7) / 7) * 0.2;
-  const tier = Math.max(0, RARITY_RANK[r.rarity] ?? 3);
-  const habit = habitForSpecies(r.species);
-  return {
-    id: rosterId(r),
-    width,
-    cruise: (68 - big * 36 + ((r.species * 5) % 9)) * scale * speedFor(habit),
-    depth: depthFor(habit, [Math.max(0.05, centre - 0.14), Math.min(0.88, centre + 0.14)]),
-    hoverBias: 1 - tier / 3,
-    dartBias: tier / 3,
-    habit,
-  };
-}
-
-// Habit anchors in tank px: rock crevices, weed stems (about half-way up), coral and earned decor.
-function anchorsFor(decor: ReturnType<typeof decorFor>, rocks: Rock[], pieces: DecorPlacement[], b: Bounds): Anchors {
-  const weedFoot = b.height - (decor.floor - 6);
-  const coralY = b.height - (decor.floor + 30) / 2;
-  return {
-    rocks: rocks.flatMap((r) => r.crevices),
-    // w-5 weeds are 20px wide; the stem is their centre.
-    weeds: decor.weeds.map((w) => ({
-      x: (w.left / 100) * b.width + 10,
-      y: weedFoot - w.height * 0.55,
-      sway: { reach: w.height * 0.55, delay: w.delay },
-    })),
-    decor: [...decor.corals.map((c) => ({ x: (c.x / 1000) * b.width, y: coralY })), ...pieces.map(decorAnchor)],
-  };
-}
-
-// Deterministic decor, scaled by width so a fullscreen tank is not sparse.
-const PEBBLE_FILLS = ['#8c7350', '#a08a63', '#6e5a3e', '#b39b70'];
-const CORAL_FILLS = ['#d9573c', '#e08a3c', '#c74f7a', '#e0b23c'];
-function decorFor(width: number, fullscreen: boolean) {
-  const w = Math.max(width, 600);
-  const weedCount = Math.min(24, Math.max(7, Math.round(w / 110)));
-  const tall = fullscreen ? 2.2 : 1;
-  return {
-    floor: fullscreen ? 44 : 24,
-    weeds: Array.from({ length: weedCount }, (_, i) => ({
-      left: 2 + (i / weedCount) * 96 + ((i * 37) % 5),
-      height: (42 + ((i * 53) % 55)) * tall,
-      delay: -((i * 1.3) % 4),
-    })),
-    pebbles: Array.from({ length: 14 }, (_, i) => ({
-      x: 30 + ((i * 173) % 940),
-      dy: (i * 7) % 6,
-      r: 8 + ((i * 11) % 12),
-      fill: PEBBLE_FILLS[i % PEBBLE_FILLS.length]!,
-    })),
-    corals: Array.from({ length: fullscreen ? 4 : 2 }, (_, i) => ({
-      x: 120 + ((i * 331) % 800),
-      fill: CORAL_FILLS[i % CORAL_FILLS.length]!,
-    })),
-  };
-}
-
-// Bubble rate 1 keeps the original count (bubbleCount); still water thins it, a strong current fills it.
-function bubblesFor(count: number) {
-  return Array.from({ length: count }, (_, i) => ({
-    left: 6 + ((i * 41) % 88),
-    size: 4 + ((i * 29) % 8),
-    duration: 5 + ((i * 17) % 6),
-    delay: -((i * 2.1) % 9),
-  }));
-}
-
-// A handful of drifting night plankton specks, deterministic like the decor.
-function planktonFor(width: number, fullscreen: boolean) {
-  const n = Math.min(28, Math.max(10, Math.round(Math.max(width, 600) / (fullscreen ? 70 : 90))));
-  return Array.from({ length: n }, (_, i) => ({
-    left: 3 + ((i * 37) % 94),
-    top: 8 + ((i * 31) % 72),
-    size: 1.5 + ((i * 7) % 3) * 0.75,
-    duration: 9 + ((i * 13) % 9),
-    delay: -((i * 3.7) % 12),
-  }));
-}
-
-// playbackRate keeps each animation's phase; changing animation-duration would jump it.
-// Reduced motion stops the caustics in CSS, so turning it off restarts them at rate 1 and needs the rate again.
-function useCausticSpeed(ref: React.RefObject<HTMLDivElement | null>, speed: number, reduced: boolean) {
-  useEffect(() => {
-    const rate = 1 / Math.max(0.25, speed);
-    for (const el of ref.current?.querySelectorAll<HTMLElement>('.reef-caustic') ?? []) {
-      for (const a of el.getAnimations?.() ?? []) a.updatePlaybackRate(rate);
-    }
-  }, [ref, speed, reduced]);
-}
-
-// Holds the snapped rate across renders so a rate near a step edge never flaps (snapBubbleRate).
-function useSnappedBubbleRate(raw: number): number {
-  const [snapped, setSnapped] = useState(() => snapBubbleRate(raw, null));
-  const next = snapBubbleRate(raw, snapped);
-  if (next !== snapped) setSnapped(next);
-  return next;
-}
-
-// Start every weed's sway at the clock's zero, so the sim (weedSway) knows each weed's phase from `now` alone.
-function useWeedClock(ref: React.RefObject<HTMLDivElement | null>, weeds: unknown[]) {
-  // Before paint, so a weed never shows a frame at its mount-time phase.
-  useLayoutEffect(() => {
-    for (const el of ref.current?.querySelectorAll<SVGElement>('.reef-sway') ?? []) {
-      for (const a of el.getAnimations?.() ?? []) a.startTime = 0;
-    }
-  }, [ref, weeds]);
 }
