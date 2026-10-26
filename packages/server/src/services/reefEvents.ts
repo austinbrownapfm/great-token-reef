@@ -1,19 +1,9 @@
-import { ReefVisitorError } from '@gtr/shared';
+import { ReefVisitorError, type ReefEvent, type ReefEventKind } from '@gtr/shared';
 import type { Db } from '../store/db.ts';
 import { deleteSetting, getSetting, setSetting } from './settings.ts';
 
 // The Reef waiting queue for non-fish arrivals (visitors and set rewards).
 // Fish keep cc_catches and their own released mark in reef.ts.
-
-export type ReefEventKind = 'pr' | 'ticket' | 'whale' | 'set';
-
-export interface ReefEventRow {
-  id: number;
-  kind: ReefEventKind;
-  ref: string;
-  payload: unknown;
-  created_at: number;
-}
 
 const RELEASED_EVENT_KEY = 'releasedEventId';
 
@@ -33,10 +23,10 @@ export function getReleasedEventId(db: Db): number {
   return Number(getSetting(db, RELEASED_EVENT_KEY) ?? 0);
 }
 
-export function pendingEvents(db: Db): ReefEventRow[] {
+export function pendingEvents(db: Db): ReefEvent[] {
   const rows = db.prepare(
     'SELECT id, kind, ref, payload_json, created_at FROM reef_events WHERE id > ? ORDER BY id',
-  ).all(getReleasedEventId(db)) as (Omit<ReefEventRow, 'payload'> & { payload_json: string })[];
+  ).all(getReleasedEventId(db)) as (Omit<ReefEvent, 'payload'> & { payload_json: string })[];
   return rows.map(({ payload_json, ...row }) => {
     try {
       return { ...row, payload: JSON.parse(payload_json) as unknown };

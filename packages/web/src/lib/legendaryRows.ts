@@ -32,7 +32,7 @@ export function previewLegendary(): LegendaryCatch[] {
   return LEGENDARY_DEFS.flatMap((d, i) =>
     [0, 1].map((shiny) => ({
       species: LEGENDARY_ID_BASE + i, name: d.name, shiny, size: 0, caught_at: 1_700_000_000 + i * 86_400 + shiny,
-      depth_tokens: 0, project: '/preview',
+      depth_tokens: 0, project: '/preview', agent: null,
     })),
   );
 }

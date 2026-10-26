@@ -168,7 +168,7 @@ describe('releasedInventory (the Inventory call site)', () => {
 
   it('a set finished by a pending catch still shows 1 to go, then waits once that catch is released', () => {
     const last = set.entries.at(-1)!;
-    const pending = [{ id: 9, species: last, shiny: 0, rarity: 'common' }];
+    const pending = [{ id: 9, species: last, shiny: 0, rarity: 'common' as const }];
     expect(releasedInventory(NONE, new Set(), species, maskCollection(species, pending)).locked.find((l) => l.setId === set.id)).toMatchObject({ toGo: 1, waiting: false });
     expect(releasedInventory(NONE, new Set(), species, species).locked.find((l) => l.setId === set.id)).toMatchObject({ toGo: 0, waiting: true });
   });

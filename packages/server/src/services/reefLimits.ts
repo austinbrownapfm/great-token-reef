@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { OfficialLimits, type OfficialWindow } from '@gtr/shared';
 import type { Db } from '../store/db.ts';
 import { getSetting } from './settings.ts';
 
@@ -17,22 +18,7 @@ import { getSetting } from './settings.ts';
 const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
 const LIMITS_KEY = 'limits';
 
-export interface OfficialWindow {
-  /** Percent, 0–100 (Anthropic reports utilization, not token budgets). */
-  utilization: number | null;
-  /** ISO-8601 reset time. */
-  resetsAt: string | null;
-}
-
-export interface OfficialLimits {
-  fiveHour: OfficialWindow | null;
-  sevenDay: OfficialWindow | null;
-  sevenDayOpus: OfficialWindow | null;
-  sevenDaySonnet: OfficialWindow | null;
-  /** e.g. "Max 20x" from subscriptionType + rateLimitTier. */
-  plan: string | null;
-  fetchedAt: number;
-}
+export type { OfficialLimits, OfficialWindow };
 
 interface OauthCreds {
   accessToken: string;
@@ -165,5 +151,9 @@ export async function refreshOfficialLimits(db: Db): Promise<OfficialLimits> {
 
 export function getOfficialLimits(db: Db): OfficialLimits | null {
   const raw = getSetting(db, LIMITS_KEY);
-  return raw ? (JSON.parse(raw) as OfficialLimits) : null;
+  if (!raw) return null;
+  // Stored by an earlier version, it may no longer match the contract: show no limits rather than a broken shape.
+  const parsed = OfficialLimits.safeParse(JSON.parse(raw));
+  if (!parsed.success) console.warn(`[reef] stored official limits no longer match the API contract; ignoring: ${parsed.error.issues[0]?.message}`);
+  return parsed.success ? parsed.data : null;
 }

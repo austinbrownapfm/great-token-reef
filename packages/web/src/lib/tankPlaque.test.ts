@@ -57,7 +57,7 @@ describe('plaqueFor (the tank call site)', () => {
   // The tank's path: pending past the mark → hidden → releasedRows → plaqueFor.
   const bass = bassEntries.slice(0, 4);
   const species = bass.map((e) => row(e, { count: 1 }));
-  const pendingOf = (e: number, id: number) => ({ id, species: e, shiny: 0, rarity: 'uncommon' });
+  const pendingOf = (e: number, id: number) => ({ id, species: e, shiny: 0, rarity: 'uncommon' as const });
 
   it('counts set progress from released entries only, so a pending catch never spoils it', () => {
     const pending = [pendingOf(bass[3]!, 9)];

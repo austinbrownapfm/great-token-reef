@@ -1,4 +1,6 @@
-export type ReefAgent = 'claude' | 'codex';
+import type { ReefAgent } from '@gtr/shared';
+
+export type { ReefAgent };
 export type ReefAgentFilter = ReefAgent | 'all';
 
 export interface ClaudeUsageRow {
@@ -45,18 +47,5 @@ export interface CodexSessionRow {
   source: string;
 }
 
-export interface CodexLimitWindow {
-  usedPercent: number;
-  windowMinutes: number;
-  resetsAt: number | null;
-}
-
-export interface CodexLimitSnapshot {
-  observedAt: number;
-  source: string;
-  limitId: string;
-  primary: CodexLimitWindow | null;
-  secondary: CodexLimitWindow | null;
-  unlimited: boolean;
-  plan: string | null;
-}
+export type { CodexLimitWindow } from '@gtr/shared';
+export type { CodexLimits as CodexLimitSnapshot } from '@gtr/shared';
