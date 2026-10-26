@@ -7,6 +7,8 @@ import type { AppEnv } from '../app.ts';
 
 export const stream = new Hono<AppEnv>().get('/', (c) => {
   const bus = c.get('bus');
+  // Hono answers HEAD by running this handler and dropping the body uncancelled, which would leak the subscription.
+  if (c.req.method === 'HEAD') return c.body(null, 200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' });
 
   return streamSSE(c, async (sse) => {
     let alive = true;
