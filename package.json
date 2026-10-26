@@ -13,6 +13,7 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm --filter @gtr/web build",
+    "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
     "icons": "sh scripts/icons.sh"
   },
   "devDependencies": {

@@ -1,0 +1,7 @@
+#!/bin/sh
+# Blocks any commit that stages a secret. `pnpm install` points git at this folder (core.hooksPath).
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks is required to commit in this repo. Install it with: brew install gitleaks" >&2
+  exit 1
+fi
+exec gitleaks git --staged --redact --no-banner
