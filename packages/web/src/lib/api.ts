@@ -1,4 +1,4 @@
-import type { ConnectStatus, FishPicks, OpenPr, ReefVisitorError } from '@gtr/shared';
+import type { ConnectStatus, FishPicks, OpenPr, ReefVisitorError, ScannerStatus } from '@gtr/shared';
 
 // Thin typed fetch client over the REST API. Types come from @gtr/shared —
 // the same schemas the server validates against.
@@ -60,16 +60,6 @@ export interface OfficialLimits {
 }
 
 export type ReefAgent = 'all' | 'claude' | 'codex';
-
-export interface CodexTrackingStatus {
-  enabled: boolean;
-  lastScanAt: number | null;
-  backfilling: boolean;
-  files: number;
-  diagnosticCount: number;
-  errors: { path: string; error: string; diagnostic?: boolean }[];
-  rootErrors: string[];
-}
 
 export interface CodexLimitWindow {
   usedPercent: number;
@@ -187,7 +177,8 @@ export interface ReefCatchesByDate {
 
 export const api = {
   reef: {
-    codexStatus: () => get<CodexTrackingStatus>('/api/reef/codex/status'),
+    claudeStatus: () => get<ScannerStatus>('/api/reef/claude/status'),
+    codexStatus: () => get<ScannerStatus>('/api/reef/codex/status'),
     summary: (agent: ReefAgent = 'claude') => get<ReefSummary>('/api/reef/summary', { agent }),
     trend: (days = 30, agent: ReefAgent = 'claude') => get<ReefTrendRow[]>('/api/reef/trend', { days, agent }),
     models: (days = 30, agent: ReefAgent = 'claude') => get<ReefModelRow[]>('/api/reef/models', { days, agent }),

@@ -1,5 +1,3 @@
-import { closeSync, openSync, readSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
 import {
   catchesEarned,
   milestoneAt,
@@ -26,140 +24,32 @@ import {
 import { checkSetCompletions } from './reefSets.ts';
 import { autoAddReleased } from './reefFish.ts';
 import { awardLegendaries, ladderTokens } from './legendaryAwards.ts';
-import type { Bus } from './bus.ts';
-import type { CodexLimitSnapshot, CodexSessionRow, CodexUsageRow, ReefAgentFilter } from './reefTypes.ts';
+import type {
+  ClaudeTranscript, CodexLimitSnapshot, CodexSessionRow, CodexUsageRow, ReefAgentFilter,
+} from './reefTypes.ts';
 
 // The Reef — Claude Code usage analytics + fishing companion.
 //
-// A scanner tails ~/.claude/projects/**/*.jsonl incrementally: cc_files
-// remembers a byte offset per file, only appended complete lines are parsed,
-// and assistant-message usage upserts into cc_usage keyed by request_id
-// (streaming re-emits and session forks that copy history dedupe themselves).
+// The scanners (claudeUsageScanner.ts, codexUsageScanner.ts) tail agent logs
+// and hand each parsed chunk to a store*Batch function below, which commits
+// usage, the scanner's checkpoint and any catches in one transaction.
 // Catches are DETERMINISTIC — seed = `${sessionId}#${index}` — so the whole
-// collection can be rebuilt from the JSONL at any time and the same fish
+// collection can be rebuilt from the logs at any time and the same fish
 // come back.
 
 export const TOK = '(input_tokens + output_tokens + cache_read_tokens + cache_w5m_tokens + cache_w1h_tokens)';
 const WINDOW_5H = 5 * 3600;
 
-interface UsageRow {
-  requestId: string;
-  ts: number;
-  sessionId: string;
-  project: string;
-  model: string;
-  input: number;
-  output: number;
-  cacheRead: number;
-  cacheW5m: number;
-  cacheW1h: number;
-}
-
-export class ReefScanner {
-  private scanning = false;
-  private warnedMissing = false;
-
-  constructor(private readonly deps: { db: Db; bus?: Bus; dir: string }) {}
-
-  start(intervalMs: number): void {
-    const tick = () => {
-      try {
-        const r = this.scan();
-        if (r.messages > 0 || r.catches > 0) {
-          console.log(`[reef] scan: ${r.messages} messages, ${r.catches} catches (${r.files} files touched)`);
-        }
-      } catch (err) {
-        console.error(`[reef] scan failed: ${(err as Error).message}`);
-      }
-    };
-    // Defer the first pass — the initial backfill reads every historical
-    // JSONL and must not delay the port bind.
-    setTimeout(tick, 3000).unref();
-    setInterval(tick, intervalMs).unref();
-  }
-
-  scan(): { files: number; messages: number; catches: number } {
-    if (this.scanning) return { files: 0, messages: 0, catches: 0 };
-    this.scanning = true;
-    try {
-      return this.scanOnce();
-    } finally {
-      this.scanning = false;
-    }
-  }
-
-  private scanOnce(): { files: number; messages: number; catches: number } {
-    const { db, dir } = this.deps;
-    repriceClaudeUsage(db);
-    let entries: string[];
-    try {
-      entries = (readdirSync(dir, { recursive: true }) as string[]).filter(
-        (p) => p.endsWith('.jsonl'),
-      );
-    } catch {
-      if (!this.warnedMissing) {
-        console.warn(`[reef] projects dir not readable: ${dir} (set GTR_CC_PROJECTS_DIR)`);
-        this.warnedMissing = true;
-      }
-      return { files: 0, messages: 0, catches: 0 };
-    }
-
-    let files = 0;
-    let messages = 0;
-    const touched = new Set<string>();
-
-    for (const rel of entries) {
-      const path = join(dir, rel);
-      let size: number;
-      try {
-        size = statSync(path).size;
-      } catch {
-        continue; // deleted between listing and stat
-      }
-      const prev = db.prepare('SELECT bytes_read FROM cc_files WHERE path = ?').get(rel) as
-        | { bytes_read: number }
-        | undefined;
-      // A shrunk file was rewritten — rescan from 0 (request_id upserts keep
-      // this idempotent).
-      const start = prev && prev.bytes_read <= size ? prev.bytes_read : 0;
-      if (size <= start) continue;
-
-      const { rows, consumed } = readAppendedRows(path, start, size - start);
-      if (consumed === 0 && rows.usage.length === 0) continue;
-
-      files++;
-      try {
-        const stored = storeUsage(db, rows);
-        for (const s of stored.touched) touched.add(s);
-        messages += stored.messages;
-        // Offset bookkeeping sits outside storeUsage's transaction — a crash
-        // between the two just re-parses on the next scan (upserts are
-        // idempotent), it never loses data.
-        db.prepare(
-          `INSERT INTO cc_files (path, size, bytes_read, updated_at)
-           VALUES (?, ?, ?, unixepoch())
-           ON CONFLICT(path) DO UPDATE SET size = excluded.size,
-             bytes_read = excluded.bytes_read, updated_at = excluded.updated_at`,
-        ).run(rel, size, start + consumed);
-      } catch (err) {
-        console.error(`[reef] file ${rel} failed: ${(err as Error).message}`);
-      }
-    }
-
-    const catches = messages > 0 ? awardCatches(db, touched) : 0;
-    if ((messages > 0 || catches > 0) && this.deps.bus) this.deps.bus.emit('reef');
-    return { files, messages, catches };
-  }
-
-}
-
-/** Upsert parsed usage + session labels in one transaction. */
-function storeUsage(
+/** Store parsed Claude Code usage, its checkpoint and any catches atomically. */
+export function storeClaudeBatch(
   db: Db,
-  rows: ParsedTranscript,
-): { messages: number; touched: Set<string> } {
+  rows: ClaudeTranscript,
+  checkpoint: () => void,
+): { messages: number; catches: number } {
   const touched = new Set<string>();
+  const unpriced = new Set<string>();
   let messages = 0;
+  let catches: number;
   db.exec('BEGIN');
   try {
     const upsert = db.prepare(
@@ -168,7 +58,6 @@ function storeUsage(
         cache_read_tokens, cache_w5m_tokens, cache_w1h_tokens, cost, cost_known)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
-    const unpriced = new Set<string>();
     for (const u of rows.usage) {
       const cost = estimateCcCost(u.model, {
         input: u.input, output: u.output, cacheRead: u.cacheRead,
@@ -186,15 +75,18 @@ function storeUsage(
     for (const s of rows.sessions) label.run(s.sessionId, s.project, s.ts, s.label);
     const aiTitle = db.prepare(`UPDATE cc_sessions SET ai_title = ? WHERE session_id = ? AND agent = 'claude'`);
     for (const t of rows.titles) aiTitle.run(t.title, t.sessionId);
+    checkpoint();
+    // Awards share the batch so a failed award also rolls back the checkpoint, and the next pass retries it.
+    catches = messages > 0 ? awardCatches(db, touched) : 0;
     db.exec('COMMIT');
-    for (const m of unpriced) {
-      console.warn(`[reef] no price for model "${m}" — cost left unknown; add it to CLAUDE_RATES in services/pricing.ts`);
-    }
   } catch (err) {
     db.exec('ROLLBACK');
     throw err;
   }
-  return { messages, touched };
+  for (const m of unpriced) {
+    console.warn(`[reef] no price for model "${m}" — cost left unknown; add it to CLAUDE_RATES in services/pricing.ts`);
+  }
+  return { messages, catches };
 }
 
 const PRICING_KEY = 'ccPricingFingerprint';
@@ -363,99 +255,6 @@ function awardCatches(db: Db, sessions: Set<string>): number {
     console.error(`[reef] set completion check failed: ${(err as Error).message}`);
   }
   return awarded;
-}
-
-/** Read the appended byte range and parse complete lines only. */
-function readAppendedRows(path: string, start: number, length: number): {
-  rows: ParsedTranscript;
-  consumed: number;
-} {
-  const buf = Buffer.alloc(length);
-  const fd = openSync(path, 'r');
-  let read = 0;
-  try {
-    read = readSync(fd, buf, 0, length, start);
-  } finally {
-    closeSync(fd);
-  }
-  const lastNl = buf.lastIndexOf(10, read - 1);
-  if (lastNl === -1) return { rows: { usage: [], sessions: [], titles: [] }, consumed: 0 };
-  return { rows: parseTranscriptLines(buf.toString('utf8', 0, lastNl).split('\n')), consumed: lastNl + 1 };
-}
-
-interface ParsedTranscript {
-  usage: UsageRow[];
-  sessions: { sessionId: string; project: string; ts: number; label: string }[];
-  titles: { sessionId: string; title: string }[];
-}
-
-/** Parse Claude Code transcript JSONL lines (shared by the scanner). */
-function parseTranscriptLines(lines: string[]): ParsedTranscript {
-  const usage: UsageRow[] = [];
-  const sessions: ParsedTranscript['sessions'] = [];
-  const titles: ParsedTranscript['titles'] = [];
-  const seenSessionLabel = new Set<string>();
-
-  for (const line of lines) {
-    if (!line) continue;
-    let obj: Record<string, unknown>;
-    try {
-      obj = JSON.parse(line) as Record<string, unknown>;
-    } catch {
-      continue; // torn or non-JSON line — skip, never abort the file
-    }
-    const sessionId = (obj.sessionId ?? obj.session_id) as string | undefined;
-    // ai-title entries carry no timestamp, so they must be read before the ts guard.
-    if (obj.type === 'ai-title' && sessionId && typeof obj.aiTitle === 'string' && obj.aiTitle.trim()) {
-      titles.push({ sessionId, title: obj.aiTitle.trim() });
-      continue;
-    }
-    const ts = typeof obj.timestamp === 'string' ? Math.floor(Date.parse(obj.timestamp) / 1000) : NaN;
-    if (!sessionId || !Number.isFinite(ts)) continue;
-    const project = typeof obj.cwd === 'string' ? obj.cwd : '';
-    const message = obj.message as Record<string, unknown> | undefined;
-
-    if (obj.type === 'assistant' && typeof obj.requestId === 'string' && message) {
-      const u = message.usage as Record<string, unknown> | undefined;
-      if (!u) continue;
-      const cache = u.cache_creation as Record<string, unknown> | undefined;
-      usage.push({
-        requestId: obj.requestId,
-        ts,
-        sessionId,
-        project,
-        model: typeof message.model === 'string' ? message.model : 'unknown',
-        input: num(u.input_tokens),
-        output: num(u.output_tokens),
-        cacheRead: num(u.cache_read_input_tokens),
-        // Older CLI versions have only the flat total — treat it as 5m.
-        cacheW5m: cache ? num(cache.ephemeral_5m_input_tokens) : num(u.cache_creation_input_tokens),
-        cacheW1h: cache ? num(cache.ephemeral_1h_input_tokens) : 0,
-      });
-    } else if (obj.type === 'user' && !obj.isMeta && message && !seenSessionLabel.has(sessionId)) {
-      const text = userText(message.content);
-      if (text) {
-        seenSessionLabel.add(sessionId);
-        sessions.push({ sessionId, project, ts, label: text.slice(0, 140) });
-      }
-    }
-  }
-  return { usage, sessions, titles };
-}
-
-const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
-
-function userText(content: unknown): string {
-  let text = '';
-  if (typeof content === 'string') text = content;
-  else if (Array.isArray(content)) {
-    const part = content.find((p) => (p as { type?: string }).type === 'text') as { text?: string } | undefined;
-    text = part?.text ?? '';
-  }
-  text = text.trim();
-  // Skip harness noise: command wrappers, tool results, system reminders.
-  if (!text || text.startsWith('<')) return '';
-  return text.replace(/\s+/g, ' ');
 }
 
 // ---------------------------------------------------------------------------

@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FISH_SETS } from '@gtr/shared';
 import type { Db } from '../store/db.ts';
 import { fixtureDb } from './fixtures.ts';
-import { ReefScanner, releaseReef, reefCollection, reefSummary, setReefEpoch, storeCodexBatch } from './reef.ts';
+import { releaseReef, reefCollection, reefSummary, setReefEpoch, storeCodexBatch } from './reef.ts';
+import { ClaudeUsageScanner } from './claudeUsageScanner.ts';
 import { setSetting } from './settings.ts';
 import { awardLegendaries, ladderTokens } from './legendaryAwards.ts';
 import { setReefFishPick } from './reefFish.ts';
@@ -33,7 +34,7 @@ const claudeUsage = (db: Db, id: string, tokens: number, ts: number) => {
     timestamp: new Date(ts * 1000).toISOString(),
     message: { model: 'claude-fable-5', usage: { input_tokens: tokens, output_tokens: 0 } },
   })}\n`);
-  new ReefScanner({ db, dir }).scan();
+  new ClaudeUsageScanner({ db, dir }).scan();
 };
 const codexUsage = (db: Db, id: string, tokens: number, ts: number) => {
   db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('codexRewardEpoch', ?)").run(String(EPOCH));

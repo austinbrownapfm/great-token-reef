@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import type { AppEnv } from '../app.ts';
+import { reefClaude } from './reefClaude.ts';
 import { reefCodex } from './reefCodex.ts';
 import { refreshOfficialLimits } from '../services/reefLimits.ts';
 import {
@@ -41,6 +42,7 @@ const agentParam = (raw: string | undefined) => {
 };
 
 export const reef = new Hono<AppEnv>()
+  .route('/claude', reefClaude)
   .route('/codex', reefCodex)
   .get('/summary', (c) => c.json(reefSummary(c.get('db'), agentParam(c.req.query('agent')))))
   .get('/trend', (c) => c.json(reefTrend(c.get('db'), daysParam(c.req.query('days'), 30), agentParam(c.req.query('agent')))))

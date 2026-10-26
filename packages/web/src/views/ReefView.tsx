@@ -74,7 +74,8 @@ export function ReefView() {
         ))}
         <span className="text-xs text-zinc-400">Usage filter · collection shared across agents</span>
       </div>
-      {codexShown && agent !== 'claude' && <CodexTracking />}
+      {agent !== 'codex' && <AgentTracking agent="claude" />}
+      {codexShown && agent !== 'claude' && <AgentTracking agent="codex" />}
       <Tank onHeldRewards={setHeldRewards} />
       {summary.isPending ? <Loading /> : summary.data && <Vitals s={summary.data} agent={agent} />}
       <TrendChart agent={agent} />
@@ -104,14 +105,20 @@ export function ReefView() {
   );
 }
 
-function CodexTracking() {
+const TRACKED = {
+  claude: { label: 'Claude Code', queryFn: api.reef.claudeStatus },
+  codex: { label: 'Codex', queryFn: api.reef.codexStatus },
+} as const;
+
+function AgentTracking({ agent }: { agent: keyof typeof TRACKED }) {
+  const { label, queryFn } = TRACKED[agent];
   const status = useQuery({
-    queryKey: ['reef', 'codex-status'],
-    queryFn: api.reef.codexStatus,
+    queryKey: ['reef', `${agent}-status`],
+    queryFn,
     refetchInterval: 60_000,
   });
-  if (status.isPending) return <div className="mt-2 text-xs text-zinc-400">Codex: checking indexing status…</div>;
-  if (!status.data) return <div className="mt-2 text-xs text-amber-600">Codex indexing status unavailable · {status.error?.message}</div>;
+  if (status.isPending) return <div className="mt-2 text-xs text-zinc-400">{label}: checking indexing status…</div>;
+  if (!status.data) return <div className="mt-2 text-xs text-amber-600">{label} indexing status unavailable · {status.error?.message}</div>;
   const s = status.data;
   const state = !s.enabled ? 'indexing paused'
     : s.backfilling ? 'indexing history…'
@@ -122,7 +129,7 @@ function CodexTracking() {
   const hasWarnings = errors.length > 0 || s.rootErrors.length > 0;
   return (
     <div className="mt-2 text-xs text-zinc-500">
-      Codex: {state}{s.lastScanAt ? ` · last scan ${timeAgo(s.lastScanAt)}` : ''}
+      {label}: {state}{s.lastScanAt ? ` · last scan ${timeAgo(s.lastScanAt)}` : ''}
       {hasWarnings && (
         <details className="mt-1 text-amber-600">
           <summary className="cursor-pointer">Indexing warnings</summary>

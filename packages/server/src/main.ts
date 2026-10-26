@@ -5,7 +5,7 @@ import { openDb } from './store/db.ts';
 import { runMigrations } from './store/migrate.ts';
 import { MIGRATIONS } from './store/migrations.ts';
 import { Bus } from './services/bus.ts';
-import { ReefScanner } from './services/reef.ts';
+import { ClaudeUsageScanner } from './services/claudeUsageScanner.ts';
 import { CodexUsageScanner } from './services/codexUsageScanner.ts';
 import { keychainDelete, keychainGet, keychainSet } from './services/keychain.ts';
 import { claudeLoginDetected } from './services/reefLimits.ts';
@@ -23,7 +23,7 @@ const applied = runMigrations(db, MIGRATIONS);
 if (applied.length > 0) console.log(`[db] applied migrations: ${applied.join(', ')}`);
 
 const bus = new Bus();
-const reefScanner = new ReefScanner({ db, bus, dir: config.ccProjectsDir });
+const reefScanner = new ClaudeUsageScanner({ db, bus, dir: config.ccProjectsDir });
 const codexScanner = new CodexUsageScanner({ db, bus, roots: [config.codexSessionsDir] });
 const githubClient = () => makeGithubClient(db, keychainGet);
 const jiraClient = () => makeJiraClient(db, keychainGet);

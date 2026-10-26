@@ -8,17 +8,17 @@ import { stream } from './routes/stream.ts';
 import { reef } from './routes/reef.ts';
 import { connect } from './routes/connect.ts';
 import type { ConnectDeps } from './services/connect.ts';
-import type { ReefScanner } from './services/reef.ts';
+import type { ClaudeUsageScanner } from './services/claudeUsageScanner.ts';
 import type { CodexUsageScanner } from './services/codexUsageScanner.ts';
 
 export interface AppEnv {
-  Variables: { db: Db; bus: Bus; reefScanner: ReefScanner; codexScanner: CodexUsageScanner; connect: ConnectDeps };
+  Variables: { db: Db; bus: Bus; reefScanner: ClaudeUsageScanner; codexScanner: CodexUsageScanner; connect: ConnectDeps };
 }
 
 export interface AppDeps {
   db: Db;
   bus: Bus;
-  reefScanner: ReefScanner;
+  reefScanner: ClaudeUsageScanner;
   codexScanner: CodexUsageScanner;
   connect: ConnectDeps;
 }
