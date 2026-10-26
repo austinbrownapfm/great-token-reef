@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
+import { Link } from '@tanstack/react-router';
 import { isLegendary } from '@gtr/shared';
 import type { PlaqueLines } from '../lib/tankPlaque';
 
@@ -50,15 +51,16 @@ export function TankPlaque({
           {lines.setDone ? '★ ' : ''}{lines.set}
         </span>
         {!isLegendary(species) && (
-          <a
-            href={`/reef?species=${species}`}
+          <Link
+            to="/"
+            search={{ species }}
             onClick={(e) => {
               e.preventDefault();
               onDex();
             }}
           >
             Open in Dex →
-          </a>
+          </Link>
         )}
       </div>
     </div>

@@ -4,6 +4,7 @@ import {
   rollCatch,
   speciesName,
   CodexLimits,
+  RarityValue,
   type OfficialLimits,
   type QuotaBurn,
   type QuotaWeek,
@@ -667,8 +668,6 @@ export function reefCollection(db: Db): ReefCollection {
   return { species, legendary, recent };
 }
 
-const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'] as const;
-
 /**
  * Individual catches for one local calendar day ("how many fish did I
  * catch today"), optionally narrowed to a rarity. `date` is a
@@ -681,7 +680,7 @@ export function reefCatchesByDate(
   const date =
     opts.date ??
     (db.prepare(`SELECT date('now', 'localtime') AS d`).get() as { d: string }).d;
-  const rarity = opts.rarity && (RARITIES as readonly string[]).includes(opts.rarity) ? opts.rarity : null;
+  const rarity = opts.rarity && (RarityValue.options as readonly string[]).includes(opts.rarity) ? opts.rarity : null;
 
   const catches = db
     .prepare(

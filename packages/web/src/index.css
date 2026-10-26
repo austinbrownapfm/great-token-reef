@@ -51,6 +51,13 @@
   to { filter: drop-shadow(0 0 calc(10px + 12px * var(--reef-glow)) rgba(180, 230, 255, 0.95)) hue-rotate(40deg); }
 }
 .reef-shiny > svg, .reef-shiny > div > svg { animation: reef-glow 4s ease-in-out infinite alternate; }
+/* Both rules set `animation`, so a shiny tank fish needs both listed or the glow replaces the wag. */
+.reef-wag.reef-shiny > svg, .reef-wag.reef-shiny > div > svg {
+  animation: reef-wag 1s ease-in-out infinite alternate, reef-glow 4s ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reef-wag.reef-shiny > svg, .reef-wag.reef-shiny > div > svg { animation-duration: 3s, 4s; }
+}
 .reef-epic > svg, .reef-epic > div > svg {
   filter: drop-shadow(0 0 calc(8px + 10px * var(--reef-glow)) rgb(192 132 252 / calc(0.7 + 0.25 * var(--reef-glow))));
 }

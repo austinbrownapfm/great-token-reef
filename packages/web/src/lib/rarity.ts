@@ -1,3 +1,5 @@
+import { RarityValue } from '@gtr/shared';
+
 // Rarity pill colours shared by the Collection and Inventory tabs.
 export const RARITY_PILL: Record<string, string> = {
   common: 'bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
@@ -7,5 +9,5 @@ export const RARITY_PILL: Record<string, string> = {
   legendary: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
 };
 
-/** Rarities a tank fish can have (legendaries never swim), rarest first. */
-export const RARITIES = ['epic', 'rare', 'uncommon', 'common'] as const;
+/** Every rarity, rarest first. */
+export const RARITIES = [...RarityValue.options].reverse();

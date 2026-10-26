@@ -175,6 +175,7 @@ function Header({ summary, codexShown }: { summary?: ReefSummary; codexShown: bo
         {summary?.lifetime.since ? ` · since ${formatDate(summary.lifetime.since)}` : ''}
       </span>
       <span className="ml-auto flex items-center gap-2">
+        {scan.isError && <span className="text-xs text-red-500">{(scan.error as Error).message}</span>}
         {sync.isError && <span className="text-xs text-red-500">{(sync.error as Error).message}</span>}
         <button onClick={() => sync.mutate()} disabled={sync.isPending} className={btn}
           title="Fetch official plan limits via Claude Code's OAuth token">

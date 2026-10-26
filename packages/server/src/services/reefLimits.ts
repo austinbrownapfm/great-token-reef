@@ -9,7 +9,7 @@ import { getSetting } from './settings.ts';
 // Official plan limits for the Reef gauges: read Claude
 // Code's own OAuth access token and ask Anthropic's oauth usage endpoint for
 // the REAL 5h/7d window utilization + reset times, instead of estimating
-// budgets from observed peaks. Manual refresh only (button on /reef) — the
+// budgets from observed peaks. Manual refresh only (button on the Reef page) — the
 // endpoint is undocumented, so we never poll it.
 //
 // The token is read fresh on every refresh (Claude Code rotates it itself)

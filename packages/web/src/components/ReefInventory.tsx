@@ -14,7 +14,7 @@ import { Fish } from './Fish';
 import { BackdropThumb, DecorSvg } from './TankDecor';
 import { Loading } from './ui';
 
-// Inventory tab on /reef (living-tank spec §4, option C): earned decor, backdrop picker, locked sets.
+// Inventory tab on the Reef page (living-tank spec §4, option C): earned decor, backdrop picker, locked sets.
 
 const SET_LABEL = new Map(FISH_SETS.map((s) => [s.id, s.label]));
 

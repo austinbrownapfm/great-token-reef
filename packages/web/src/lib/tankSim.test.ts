@@ -22,6 +22,7 @@ import {
   step,
   swimOff,
   transformOf,
+  wagAnimation,
   type Bounds,
   type Swimmer,
   type SwimmerSpec,
@@ -695,5 +696,14 @@ describe('rescale under a taller band', () => {
     const taller = { ...b, top: 200 };
     rescale([s!], [], b, taller);
     expect(s!.y - s!.height / 2).toBeGreaterThanOrEqual(200);
+  });
+});
+
+describe('wagAnimation', () => {
+  it('finds the tail beat even when the shiny glow comes first', () => {
+    const glow = { animationName: 'reef-glow' } as unknown as Animation;
+    const wag = { animationName: 'reef-wag' } as unknown as Animation;
+    expect(wagAnimation([glow, wag])).toBe(wag);
+    expect(wagAnimation([glow])).toBeNull();
   });
 });

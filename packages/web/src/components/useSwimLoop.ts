@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Anchors } from '../lib/tankHabits';
 import { hudReserve, keepHeld, placePlaque } from '../lib/tankPlaque';
 import {
-  ART_RATIO, WAG_MIN, dropFood, easeWag, isGone, mouthOf, quantizeWag, rescale, spawn, spawnDropIn, step, swimOff, transformOf,
+  ART_RATIO, WAG_MIN, dropFood, easeWag, isGone, mouthOf, quantizeWag, rescale, spawn, spawnDropIn, step, swimOff, transformOf, wagAnimation,
   type Bounds, type Sway, type Swimmer, type SwimmerSpec, type World,
 } from '../lib/tankSim';
 import type { ReleaseMotion } from './useTankRelease';
@@ -132,7 +132,7 @@ export function useSwimLoop(
       const q = quantizeWag(w.rate);
       if (q !== w.applied) {
         if (!w.anim || !(w.anim.effect as KeyframeEffect | null)?.target?.isConnected) {
-          w.anim = el.querySelector('svg')?.getAnimations()[0] ?? null;
+          w.anim = wagAnimation(el.querySelector('svg')?.getAnimations() ?? []);
         }
         if (w.anim) {
           w.anim.updatePlaybackRate(q);

@@ -53,6 +53,11 @@ export function quantizeWag(rate: number): number {
   return Math.max(WAG_MIN, Math.round(rate / WAG_STEP) * WAG_STEP);
 }
 
+/** The tail beat among an element's animations; a shiny fish also runs its glow. */
+export function wagAnimation(anims: readonly Animation[]): Animation | null {
+  return anims.find((a) => (a as CSSAnimation).animationName === 'reef-wag') ?? null;
+}
+
 /** Food flake: sinks with a wobble, rests on the sand, then dissolves. */
 export interface Flake {
   id: number;
