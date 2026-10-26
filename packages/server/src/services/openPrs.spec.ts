@@ -5,7 +5,7 @@ import { CodexUsageScanner } from './codexUsageScanner.ts';
 import { fakeConnectDeps, fixtureDb } from './fixtures.ts';
 import { listOpenPrs, replaceOpenPrs } from './openPrs.ts';
 import { computeFeedback, computeNeedsMe, computePrState, type RawPr } from './prCompute.ts';
-import { ReefScanner } from './reef.ts';
+import { ClaudeUsageScanner } from './claudeUsageScanner.ts';
 
 function raw(overrides: Partial<RawPr> = {}): RawPr {
   return {
@@ -65,7 +65,7 @@ describe('open PRs', () => {
     replaceOpenPrs(db, 'octo', [raw()]);
     const app = createApp({
       db, bus: new Bus(), connect: fakeConnectDeps(),
-      reefScanner: new ReefScanner({ db, dir: '/nonexistent' }),
+      reefScanner: new ClaudeUsageScanner({ db, dir: '/nonexistent' }),
       codexScanner: new CodexUsageScanner({ db, roots: [] }),
     });
     const res = await app.request('/api/reef/prs');

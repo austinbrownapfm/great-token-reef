@@ -6,9 +6,10 @@ import { FISH_SETS } from '@gtr/shared';
 import type { Db } from '../store/db.ts';
 import { fixtureDb } from './fixtures.ts';
 import {
-  ReefScanner, getCodexRewardEpoch, reefCatchesByDate, reefCollection, reefModels, reefProjects, reefSessions,
+  getCodexRewardEpoch, reefCatchesByDate, reefCollection, reefModels, reefProjects, reefSessions,
   reefSummary, reefTrend, setReefEpoch, storeCodexBatch,
 } from './reef.ts';
+import { ClaudeUsageScanner } from './claudeUsageScanner.ts';
 import type { CodexSessionRow, CodexUsageRow } from './reefTypes.ts';
 
 const now = Math.floor(Date.now() / 1000);
@@ -45,7 +46,7 @@ const claude = (db: Db, tokens: number, ts = now - 1, id = 'claude-request') => 
     timestamp: new Date(ts * 1000).toISOString(),
     message: { model: 'claude-fable-5', usage: { input_tokens: tokens, output_tokens: 0 } },
   })}\n`);
-  new ReefScanner({ db, dir }).scan();
+  new ClaudeUsageScanner({ db, dir }).scan();
 };
 const activate = (db: Db, epoch = now) => {
   db.prepare("INSERT INTO settings (key, value) VALUES ('codexRewardEpoch', ?)")

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { closeSync, constants, fstatSync, lstatSync, openSync, readSync, readdirSync, realpathSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import type { ScannerStatus } from '@gtr/shared';
 import type { Db } from '../store/db.ts';
 import type { Bus } from './bus.ts';
 import { getCodexRewardEpoch, storeCodexBatch } from './reef.ts';
@@ -14,7 +15,7 @@ const SCAN_FILES = 128;
 interface FileCheckpoint { size: number; bytes_read: number; state_json: string; parser_version: number; inode: string; prefix_hash: string }
 type ScanState = CodexParserState & { discardLine?: boolean };
 
-/** Bounded synchronous passes match ReefScanner's public API; backfill yields
+/** Bounded synchronous passes match ClaudeUsageScanner's public API; backfill yields
  * between passes so a multi-gigabyte sessions tree cannot block the listener. */
 export class CodexUsageScanner {
   private scanning = false;
@@ -58,7 +59,7 @@ export class CodexUsageScanner {
     this.timer.unref();
   }
 
-  status(): { enabled: boolean; lastScanAt: number | null; backfilling: boolean; files: number; diagnosticCount: number; errors: { path: string; error: string; diagnostic?: boolean }[]; rootErrors: string[] } {
+  status(): ScannerStatus {
     const rows = this.deps.db.prepare('SELECT path, state_json, last_error FROM codex_files').all() as { path: string; state_json: string; last_error: string | null }[];
     let diagnosticCount = 0;
     const errors: { path: string; error: string; diagnostic: boolean }[] = [];

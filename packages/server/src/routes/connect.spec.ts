@@ -3,7 +3,7 @@ import { createApp } from '../app.ts';
 import { Bus } from '../services/bus.ts';
 import { CodexUsageScanner } from '../services/codexUsageScanner.ts';
 import { fakeConnectDeps, fixtureDb } from '../services/fixtures.ts';
-import { ReefScanner } from '../services/reef.ts';
+import { ClaudeUsageScanner } from '../services/claudeUsageScanner.ts';
 
 beforeEach(() => {
   vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -16,7 +16,7 @@ function setup(overrides = {}) {
   const connect = fakeConnectDeps({ onChange: vi.fn(), ...overrides });
   const app = createApp({
     db, bus: new Bus(), connect,
-    reefScanner: new ReefScanner({ db, dir: '/nonexistent' }),
+    reefScanner: new ClaudeUsageScanner({ db, dir: '/nonexistent' }),
     codexScanner: new CodexUsageScanner({ db, roots: [] }),
   });
   const send = (method: string, path: string, body?: unknown) =>

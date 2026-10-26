@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppEnv } from '../app.ts';
 import type { Db } from '../store/db.ts';
-import type { ReefScanner } from '../services/reef.ts';
+import type { ClaudeUsageScanner } from '../services/claudeUsageScanner.ts';
 import type { CodexUsageScanner } from '../services/codexUsageScanner.ts';
 import { reef } from './reef.ts';
 import { reefModels, reefProjects, reefSessions, reefSummary, reefTrend, releaseReef } from '../services/reef.ts';
@@ -32,7 +32,7 @@ function app(claude?: ReturnType<typeof scanner>, codex?: ReturnType<typeof scan
   const routes = new Hono<AppEnv>();
   routes.use('*', async (c, next) => {
     c.set('db', db);
-    if (claude) c.set('reefScanner', claude as unknown as ReefScanner);
+    if (claude) c.set('reefScanner', claude as unknown as ClaudeUsageScanner);
     if (codex) c.set('codexScanner', codex as unknown as CodexUsageScanner);
     await next();
   });

@@ -124,4 +124,13 @@ export const MIGRATIONS: Migration[] = [
         ('releasedEventId', '0')`,
     ],
   },
+  {
+    version: 2,
+    name: 'cc-files-scan-state',
+    up: [
+      `ALTER TABLE cc_files ADD COLUMN last_error TEXT`,
+      // Set while skipping the tail of an oversized line, so a restart does not parse it.
+      `ALTER TABLE cc_files ADD COLUMN skip_partial INTEGER NOT NULL DEFAULT 0`,
+    ],
+  },
 ];

@@ -39,3 +39,15 @@ export const ConnectStatus = z.object({
   }),
 });
 export type ConnectStatus = z.infer<typeof ConnectStatus>;
+
+// A usage scanner's indexing state (Claude Code and Codex share the shape).
+export const ScannerStatus = z.object({
+  enabled: z.boolean(),
+  lastScanAt: unixSeconds.nullable(),
+  backfilling: z.boolean(),
+  files: z.number().int(),
+  diagnosticCount: z.number().int(),
+  errors: z.array(z.object({ path: z.string(), error: z.string(), diagnostic: z.boolean().optional() })),
+  rootErrors: z.array(z.string()),
+});
+export type ScannerStatus = z.infer<typeof ScannerStatus>;
