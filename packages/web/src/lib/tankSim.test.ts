@@ -194,16 +194,20 @@ describe('tankSim', () => {
     const fish = spawn(many, bounds, r, 0);
     const world: World = { current: 30, flakes: [] };
     let now = 0;
-    for (let i = 0; i < 60 * 60; i++) {
+    // One assertion at the end: 288k expect() calls overran the timeout on CI runners.
+    let escaped: string | null = null;
+    for (let i = 0; i < 60 * 60 && !escaped; i++) {
       now += 1 / 60;
       step(fish, bounds, 1 / 60, r, now, world);
       for (const s of fish) {
-        expect(s.x - s.width / 2).toBeGreaterThanOrEqual(-0.001);
-        expect(s.x + s.width / 2).toBeLessThanOrEqual(bounds.width + 0.001);
-        expect(s.y - s.height / 2).toBeGreaterThanOrEqual(-0.001);
-        expect(s.y + s.height / 2).toBeLessThanOrEqual(bounds.height);
+        if (s.x - s.width / 2 < -0.001 || s.x + s.width / 2 > bounds.width + 0.001
+          || s.y - s.height / 2 < -0.001 || s.y + s.height / 2 > bounds.height) {
+          escaped = `${s.id} at frame ${i}: x=${s.x} y=${s.y}`;
+          break;
+        }
       }
     }
+    expect(escaped).toBeNull();
   });
 
   it('fish swimming against the current still make headway', () => {
