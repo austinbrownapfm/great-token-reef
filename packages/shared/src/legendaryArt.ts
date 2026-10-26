@@ -228,7 +228,7 @@ const greenlandParts: SharkParts = {
   <path d="M258 98 C264 104 270 108 280 112 C270 114 262 110 258 104 Z" fill="${p.fin}"/>`,
   dorsal: (_, p) => `<path d="M132 62 C136 55 140 51 145 49 C149 54 152 59 154 63 C147 61 139 61 132 62 Z" fill="${p.fin}"/>
   <path d="M190 66 C194 60 197 57 201 55 C204 60 206 65 207 70 C201 67 196 66 190 66 Z" fill="${p.fin}"/>`,
-  body: (uid, p) => `<path d="${GREENLAND_BODY}" fill="url(#${uid}-b)"/>`,
+  body: (uid) => `<path d="${GREENLAND_BODY}" fill="url(#${uid}-b)"/>`,
   marks: (uid, p) => {
     const dark: number[][] = [], pale: number[][] = [];
     for (let i = 0; i < 26; i++) {

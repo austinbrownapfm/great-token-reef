@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { z } from 'zod';
 import type { PrChecks, RawPr } from './prCompute.ts';
 
 const execFileAsync = promisify(execFile);
@@ -63,8 +64,60 @@ function mapChecks(state: string | null | undefined): PrChecks {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapPr(n: any): RawPr {
+// Response shapes for the queries above. Optional fields stay optional, so only a genuinely
+// different response fails, and it fails with a readable error instead of a TypeError mid-sync.
+const Author = z.object({ login: z.string() }).nullish();
+const Repository = z.object({ name: z.string(), owner: Author });
+const PrNode = z.object({
+  repository: Repository,
+  number: z.number().int(),
+  title: z.string(),
+  body: z.string().nullish(),
+  headRefName: z.string(),
+  url: z.string(),
+  isDraft: z.boolean(),
+  createdAt: z.string().nullish(),
+  updatedAt: z.string().nullish(),
+  commits: z.object({ nodes: z.array(z.object({ commit: z.object({
+    committedDate: z.string().nullish(),
+    statusCheckRollup: z.object({ state: z.string().nullish() }).nullish(),
+  }) }).nullable()).nullish() }).nullish(),
+  reviewThreads: z.object({ nodes: z.array(z.object({
+    isResolved: z.boolean(),
+    path: z.string().nullish(),
+    comments: z.object({ nodes: z.array(z.object({
+      author: Author, createdAt: z.string().nullish(), url: z.string().nullish(), body: z.string().nullish(),
+    })).nullish() }).nullish(),
+  })).nullish() }).nullish(),
+  reviews: z.object({ nodes: z.array(z.object({
+    author: Author,
+    state: z.enum(['APPROVED', 'CHANGES_REQUESTED', 'COMMENTED', 'DISMISSED', 'PENDING']),
+    submittedAt: z.string().nullish(),
+    body: z.string().nullish(),
+    url: z.string().nullish(),
+  })).nullish() }).nullish(),
+});
+const MergedNode = z.object({ repository: Repository, number: z.number().int(), title: z.string(), url: z.string(), mergedAt: z.string().nullish() });
+// Search can return non-PR results as empty objects; those carry no number and are skipped.
+const Search = z.object({
+  pageInfo: z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() }),
+  nodes: z.array(z.record(z.string(), z.unknown()).nullable()),
+});
+const OpenResponse = z.object({ viewer: z.object({ login: z.string() }), search: Search });
+const MergedResponse = z.object({ search: Search });
+const GraphqlEnvelope = z.object({ data: z.unknown().optional(), errors: z.array(z.object({ message: z.string() })).optional() });
+
+function parse<T>(schema: z.ZodType<T>, value: unknown): T {
+  const result = schema.safeParse(value);
+  if (result.success) return result.data;
+  const issue = result.error.issues[0]!;
+  throw new Error(`[github] unexpected response at ${issue.path.join('.') || '(root)'}: ${issue.message}`);
+}
+
+const prNodes = <T>(schema: z.ZodType<T>, nodes: z.infer<typeof Search>['nodes']): T[] =>
+  nodes.filter((n) => n?.number != null).map((n) => parse(schema, n));
+
+function mapPr(n: z.infer<typeof PrNode>): RawPr {
   const commit = n.commits?.nodes?.[0]?.commit;
   return {
     owner: n.repository.owner?.login ?? '',
@@ -79,16 +132,13 @@ function mapPr(n: any): RawPr {
     updatedAt: toSec(n.updatedAt),
     headCommittedAt: toSec(commit?.committedDate),
     checks: mapChecks(commit?.statusCheckRollup?.state),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    threads: (n.reviewThreads?.nodes ?? []).map((t: any) => ({
+    threads: (n.reviewThreads?.nodes ?? []).map((t) => ({
       isResolved: t.isResolved,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      comments: (t.comments?.nodes ?? []).map((c: any) => ({
+      comments: (t.comments?.nodes ?? []).map((c) => ({
         author: c.author?.login ?? 'ghost', createdAt: toSec(c.createdAt), url: c.url ?? null, body: c.body ?? '', path: t.path ?? null,
       })),
     })),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    reviews: (n.reviews?.nodes ?? []).map((r: any) => ({
+    reviews: (n.reviews?.nodes ?? []).map((r) => ({
       author: r.author?.login ?? 'ghost', state: r.state, submittedAt: toSec(r.submittedAt), body: r.body ?? '', url: r.url ?? null,
     })),
   };
@@ -114,8 +164,7 @@ export async function githubLogin(token: string, fetchImpl: typeof fetch = fetch
   return login;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function graphql(token: string, query: string, variables: Record<string, unknown>, fetchImpl: typeof fetch): Promise<any> {
+async function graphql<T>(token: string, query: string, variables: Record<string, unknown>, fetchImpl: typeof fetch, schema: z.ZodType<T>): Promise<T> {
   const res: Response = await fetchImpl('https://api.github.com/graphql', {
     method: 'POST',
     headers: headers(token),
@@ -124,28 +173,25 @@ async function graphql(token: string, query: string, variables: Record<string, u
   });
   if (res.status === 401) throw new GithubAuthError('github rejected token (401)');
   if (res.status !== 200) throw await failure(res);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const json: any = await res.json();
+  const json = parse(GraphqlEnvelope, await res.json());
   if (json.errors?.length) {
-    console.error(`[visitors] github graphql errors: ${json.errors[0].message}`);
-    throw new Error(`[github] ${res.status}: ${json.errors[0].message}`);
+    console.error(`[visitors] github graphql errors: ${json.errors[0]!.message}`);
+    throw new Error(`[github] ${res.status}: ${json.errors[0]!.message}`);
   }
-  return json;
+  return parse(schema, json.data);
 }
 
 export async function fetchOpenPrs(token: string, orgs: string[], excludedRepos: string[], fetchImpl: typeof fetch = fetch): Promise<GithubFetchResult> {
   const q = buildPrSearch('open', orgs, excludedRepos);
   const excluded = excludedSet(excludedRepos);
-  let me = '';
+  let me: string;
   const prs: RawPr[] = [];
   let after: string | null = null;
   for (;;) {
-    const json = await graphql(token, QUERY, { q, after }, fetchImpl);
-    me = json.data.viewer.login;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const search: any = json.data.search;
-    for (const n of search.nodes) {
-      if (n?.number == null) continue;
+    const data: z.infer<typeof OpenResponse> = await graphql(token, QUERY, { q, after }, fetchImpl, OpenResponse);
+    me = data.viewer.login;
+    const search = data.search;
+    for (const n of prNodes(PrNode, search.nodes)) {
       const pr = mapPr(n);
       if (!isExcluded(excluded, pr.owner, pr.repo)) prs.push(pr);
     }
@@ -175,11 +221,9 @@ export async function fetchMergedPrs(
   const out: MergedPr[] = [];
   let after: string | null = null;
   for (;;) {
-    const json = await graphql(token, MERGED_QUERY, { q, after }, fetchImpl);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const search: any = json.data.search;
-    for (const n of search.nodes) {
-      if (n?.number == null || !n.mergedAt) continue;
+    const { search }: z.infer<typeof MergedResponse> = await graphql(token, MERGED_QUERY, { q, after }, fetchImpl, MergedResponse);
+    for (const n of prNodes(MergedNode, search.nodes)) {
+      if (!n.mergedAt) continue;
       if (isExcluded(excluded, n.repository.owner?.login ?? '', n.repository.name)) continue;
       out.push({ id: `${n.repository.owner?.login ?? ''}/${n.repository.name}#${n.number}`, repo: n.repository.name, number: n.number, title: n.title, url: n.url, mergedAt: toSec(n.mergedAt) });
     }

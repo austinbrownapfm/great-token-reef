@@ -35,7 +35,7 @@ export function runMigrations(db: Db, migrations: readonly Migration[]): number[
       db.exec('COMMIT');
     } catch (err) {
       db.exec('ROLLBACK');
-      throw new Error(`migration ${m.version} (${m.name}) failed: ${(err as Error).message}`);
+      throw new Error(`migration ${m.version} (${m.name}) failed: ${(err as Error).message}`, { cause: err });
     }
     applied.push(m.version);
   }

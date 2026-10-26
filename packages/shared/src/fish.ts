@@ -12,7 +12,6 @@
 
 import {
   ENTRIES,
-  SPECIES_DEFS,
   resolveEntry,
   type Palette,
   type Water,
