@@ -6,7 +6,7 @@ import { maskCollection } from './tankRelease';
 import { allSpecies, legendaryProgress, legendaryRows, legendarySlot, previewLegendary } from './legendaryRows';
 
 const l = (species: number, shiny: number, caught_at: number, project = '/p/a'): ReefCollection['legendary'][number] =>
-  ({ species, name: `L${species}`, shiny, size: 0, caught_at, depth_tokens: 1, project });
+  ({ species, name: `L${species}`, shiny, size: 0, caught_at, depth_tokens: 1, project, agent: null });
 
 describe('legendaryRows', () => {
   it('folds regular and shiny catches of one legendary into one species row', () => {
@@ -46,8 +46,8 @@ describe('Inventory picker rows', () => {
 describe('legendarySlot', () => {
   const row = (i: number, shiny: boolean, at: number): ReefCollection['legendary'][number] => ({
     species: LEGENDARY_ID_BASE + i, name: LEGENDARY_DEFS[i]!.name, shiny: shiny ? 1 : 0, size: 400, caught_at: at,
-    depth_tokens: 0, project: '', id: at, seed: `s${at}`, session_id: 'lifetime', catch_index: i, rarity: 'legendary', agent: null,
-  } as ReefCollection['legendary'][number]);
+    depth_tokens: 0, project: '', agent: null,
+  });
 
   it('shows the regular silhouette and its threshold when nothing is caught', () => {
     expect(legendarySlot([], 0)).toEqual({ shiny: false, caught: undefined, next: 100_000_000 });

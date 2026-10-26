@@ -267,7 +267,7 @@ function parseTranscriptLines(lines: string[]): ClaudeTranscript {
   return { usage, sessions, titles };
 }
 
-const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+const num = (v: unknown): number => (typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? v : 0);
 
 function userText(content: unknown): string {
   let text = '';

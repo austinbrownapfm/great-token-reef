@@ -3,7 +3,22 @@ import {
   milestoneAt,
   rollCatch,
   speciesName,
-  type ReefVisitorError,
+  CodexLimits,
+  type OfficialLimits,
+  type QuotaBurn,
+  type QuotaWeek,
+  type ReefCatch,
+  type ReefCatchesByDate,
+  type ReefCollection,
+  type ReefLegendaryRow,
+  type ReefModelRow,
+  type ReefPending,
+  type ReefProjectRow,
+  type ReefSessionRow,
+  type ReefSpeciesRow,
+  type ReefSummary,
+  type ReefTrendRow,
+  type Window5h,
 } from '@gtr/shared';
 
 // The stored `name` column is a write-time snapshot kept for debugging; the
@@ -17,15 +32,15 @@ function deriveName<T extends { species: number; rarity: string; name: string }>
 import type { Db } from '../store/db.ts';
 import { CLAUDE_RATES_FINGERPRINT, estimateCcCost } from './pricing.ts';
 import { getSetting, setSetting } from './settings.ts';
-import { getOfficialLimits, type OfficialLimits } from './reefLimits.ts';
+import { getOfficialLimits } from './reefLimits.ts';
 import {
-  emitReefEvent, getReleasedEventId, moveEventMark, pendingEventCount, pendingEvents, visitorErrors, type ReefEventRow,
+  emitReefEvent, getReleasedEventId, moveEventMark, pendingEventCount, pendingEvents, visitorErrors,
 } from './reefEvents.ts';
 import { checkSetCompletions } from './reefSets.ts';
 import { autoAddReleased } from './reefFish.ts';
 import { awardLegendaries, ladderTokens } from './legendaryAwards.ts';
 import type {
-  ClaudeTranscript, CodexLimitSnapshot, CodexSessionRow, CodexUsageRow, ReefAgentFilter,
+  ClaudeTranscript, CodexSessionRow, CodexUsageRow, ReefAgentFilter,
 } from './reefTypes.ts';
 
 // The Reef — Claude Code usage analytics + fishing companion.
@@ -287,16 +302,6 @@ export function getReleasedCatchId(db: Db): number {
   return Number(getSetting(db, RELEASED_KEY) ?? 0);
 }
 
-export interface ReefPending {
-  count: number;
-  releasedId: number;
-  catches: CatchRow[];
-  all: { id: number; species: number; shiny: number; rarity: string }[];
-  events: ReefEventRow[];
-  eventCount: number;
-  visitorErrors: ReefVisitorError[];
-}
-
 export function reefPending(db: Db): ReefPending {
   const releasedId = getReleasedCatchId(db);
   const all = db.prepare(
@@ -304,7 +309,7 @@ export function reefPending(db: Db): ReefPending {
   ).all(releasedId) as ReefPending['all'];
   const rows = db.prepare(
     'SELECT * FROM cc_catches WHERE id > ? ORDER BY id DESC LIMIT 10',
-  ).all(releasedId) as Omit<CatchRow, 'agent'>[];
+  ).all(releasedId) as CatchColumns[];
   const events = pendingEvents(db);
   return {
     count: all.length, releasedId, catches: rows.map(deriveCatch), all, events, eventCount: events.length,
@@ -405,14 +410,11 @@ function tokensPerActiveMin7d(db: Db, agent: ReefAgentFilter, weekTokens: number
 
 function claudeSummary(db: Db): {
   today: { tokens: number; cost: number; catches: number };
-  window5h: {
-    tokens: number; budget: number | null; budgetEstimated: boolean;
-    startedAt: number | null; resetAt: number | null; limitAt: number | null;
-  };
-  week: { tokens: number; cost: number; budget: number | null; budgetEstimated: boolean };
-  burn: { tokensPerMin: number; costPerHour: number; tokensPerMin7d: number; tokensPerActiveMin7d: number };
+  window5h: Window5h;
+  week: QuotaWeek;
+  burn: QuotaBurn;
   official: OfficialLimits | null;
-  lastCatch: CatchRow | null;
+  lastCatch: ReefCatch | null;
   lifetime: {
     tokens: number; cost: number; since: number | null;
     catches: number; speciesDiscovered: number;
@@ -485,7 +487,7 @@ function claudeSummary(db: Db): {
 
   const lastCatchRow = (db.prepare(
     'SELECT * FROM cc_catches ORDER BY caught_at DESC, id DESC LIMIT 1',
-  ).get() ?? null) as Omit<CatchRow, 'agent'> | null;
+  ).get() ?? null) as CatchColumns | null;
   const lastCatch = lastCatchRow ? deriveCatch(lastCatchRow) : null;
 
   const lifetime = db.prepare(
@@ -524,7 +526,7 @@ function claudeSummary(db: Db): {
 }
 
 /** Usage selection is independent of Claude quotas and the shared collection. */
-export function reefSummary(db: Db, agent: ReefAgentFilter = 'claude') {
+export function reefSummary(db: Db, agent: ReefAgentFilter = 'claude'): ReefSummary {
   const claude = claudeSummary(db);
   const now = Math.floor(Date.now() / 1000);
   const dayStart = Math.floor(new Date(new Date().setHours(0, 0, 0, 0)).getTime() / 1000);
@@ -541,9 +543,13 @@ export function reefSummary(db: Db, agent: ReefAgentFilter = 'claude') {
   const limitRow = db.prepare(
     'SELECT snapshot_json FROM codex_limits ORDER BY observed_at DESC, source LIMIT 1',
   ).get() as { snapshot_json: string } | undefined;
-  let codexLimits: CodexLimitSnapshot | null = null;
+  let codexLimits: CodexLimits | null = null;
   if (limitRow) {
-    try { codexLimits = JSON.parse(limitRow.snapshot_json) as CodexLimitSnapshot; } catch { /* ignore invalid stored telemetry */ }
+    try {
+      const parsed = CodexLimits.safeParse(JSON.parse(limitRow.snapshot_json));
+      if (parsed.success) codexLimits = parsed.data;
+      else console.warn(`[codex] stored limit snapshot no longer matches the API contract; showing none: ${parsed.error.issues[0]?.message}`);
+    } catch { /* ignore invalid stored telemetry */ }
   }
   return {
     ...claude,
@@ -573,30 +579,26 @@ export function reefSummary(db: Db, agent: ReefAgentFilter = 'claude') {
   };
 }
 
-export interface CatchRow {
-  agent: 'claude' | 'codex' | null;
-  id: number; seed: string; session_id: string; catch_index: number;
-  caught_at: number; project: string; depth_tokens: number; species: number;
-  name: string; rarity: string; shiny: number; size: number;
-}
+/** A cc_catches row as stored: the API's ReefCatch adds the derived agent. */
+type CatchColumns = Omit<ReefCatch, 'agent'>;
 
 // Codex session IDs are namespaced at ingestion; Claude IDs remain unchanged.
 // Legendaries belong to the shared collection, not to either agent.
-function deriveCatch(row: Omit<CatchRow, 'agent'>): CatchRow {
+function deriveCatch(row: CatchColumns): ReefCatch {
   return { ...deriveName(row), agent: row.rarity === 'legendary' ? null : row.session_id.startsWith('codex:') ? 'codex' : 'claude' };
 }
 
-export function reefTrend(db: Db, days: number, agent: ReefAgentFilter = 'claude') {
+export function reefTrend(db: Db, days: number, agent: ReefAgentFilter = 'claude'): ReefTrendRow[] {
   return db.prepare(
     `SELECT date(ts, 'unixepoch', 'localtime') AS day, model, agent,
             SUM(${TOK}) AS tokens, ROUND(SUM(cost), 4) AS cost,
             SUM(CASE WHEN cost_known = 0 THEN 1 ELSE 0 END) AS unpricedEvents
      FROM cc_usage WHERE ts > unixepoch() - ? * 86400 AND (? = 'all' OR agent = ?)
      GROUP BY day, model, agent ORDER BY day`,
-  ).all(days, agent, agent);
+  ).all(days, agent, agent) as ReefTrendRow[];
 }
 
-export function reefModels(db: Db, days: number, agent: ReefAgentFilter = 'claude') {
+export function reefModels(db: Db, days: number, agent: ReefAgentFilter = 'claude'): ReefModelRow[] {
   return db.prepare(
     `SELECT model, agent, COUNT(*) AS calls,
             SUM(input_tokens) AS input, SUM(output_tokens) AS output,
@@ -606,20 +608,20 @@ export function reefModels(db: Db, days: number, agent: ReefAgentFilter = 'claud
             SUM(CASE WHEN cost_known = 0 THEN 1 ELSE 0 END) AS unpricedEvents
      FROM cc_usage WHERE ts > unixepoch() - ? * 86400 AND (? = 'all' OR agent = ?)
      GROUP BY model, agent ORDER BY cost DESC`,
-  ).all(days, agent, agent);
+  ).all(days, agent, agent) as ReefModelRow[];
 }
 
-export function reefProjects(db: Db, days: number, agent: ReefAgentFilter = 'claude') {
+export function reefProjects(db: Db, days: number, agent: ReefAgentFilter = 'claude'): ReefProjectRow[] {
   return db.prepare(
     `SELECT project, SUM(${TOK}) AS tokens, ROUND(SUM(cost), 2) AS cost,
             SUM(CASE WHEN cost_known = 0 THEN 1 ELSE 0 END) AS unpricedEvents,
             COUNT(DISTINCT session_id) AS sessions, MAX(ts) AS last_used
      FROM cc_usage WHERE ts > unixepoch() - ? * 86400 AND (? = 'all' OR agent = ?)
      GROUP BY project ORDER BY cost DESC`,
-  ).all(days, agent, agent);
+  ).all(days, agent, agent) as ReefProjectRow[];
 }
 
-export function reefSessions(db: Db, days: number, limit = 20, agent: ReefAgentFilter = 'claude') {
+export function reefSessions(db: Db, days: number, limit = 20, agent: ReefAgentFilter = 'claude'): ReefSessionRow[] {
   return db.prepare(
     `SELECT u.session_id,
             COALESCE(
@@ -643,18 +645,10 @@ export function reefSessions(db: Db, days: number, limit = 20, agent: ReefAgentF
      LEFT JOIN cc_sessions s ON s.session_id = u.session_id
      WHERE u.ts > unixepoch() - ? * 86400 AND (? = 'all' OR u.agent = ?)
      GROUP BY u.session_id ORDER BY ended_at DESC LIMIT ?`,
-  ).all(readCodexRewardEpoch(db), days, agent, agent, limit);
+  ).all(readCodexRewardEpoch(db), days, agent, agent, limit) as ReefSessionRow[];
 }
 
-export interface CollectionSpeciesRow {
-  species: number; name: string; rarity: string; count: number;
-  shiny_count: number; best_size: number; first_caught: number;
-  last_caught: number; first_project: string | null;
-  /** best among catches already in the tank; the tank draws this until a release lands */
-  released_best_size: number | null;
-}
-
-export function reefCollection(db: Db) {
+export function reefCollection(db: Db): ReefCollection {
   const releasedId = getReleasedCatchId(db);
   const species = db.prepare(
     `SELECT species, name, rarity, COUNT(*) AS count, SUM(shiny) AS shiny_count,
@@ -665,14 +659,14 @@ export function reefCollection(db: Db) {
               ORDER BY c2.caught_at, c2.id LIMIT 1) AS first_project
      FROM cc_catches c WHERE c.rarity != 'legendary'
      GROUP BY species ORDER BY MIN(caught_at)`,
-  ).all(releasedId).map((r) => deriveName(r as unknown as CollectionSpeciesRow));
+  ).all(releasedId).map((r) => deriveName(r as unknown as ReefSpeciesRow));
   const legendary = db.prepare(
     `SELECT species, name, shiny, size, caught_at, depth_tokens, project, NULL AS agent FROM cc_catches
      WHERE rarity = 'legendary' ORDER BY depth_tokens, shiny`,
-  ).all();
+  ).all() as ReefLegendaryRow[];
   const recent = db.prepare(
     'SELECT * FROM cc_catches ORDER BY caught_at DESC, id DESC LIMIT 30',
-  ).all().map((r) => deriveCatch(r as unknown as Omit<CatchRow, 'agent'>));
+  ).all().map((r) => deriveCatch(r as unknown as CatchColumns));
   return { species, legendary, recent };
 }
 
@@ -686,7 +680,7 @@ const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'] as const;
 export function reefCatchesByDate(
   db: Db,
   opts: { date?: string; rarity?: string } = {},
-): { date: string; count: number; catches: CatchRow[] } {
+): ReefCatchesByDate {
   const date =
     opts.date ??
     (db.prepare(`SELECT date('now', 'localtime') AS d`).get() as { d: string }).d;
@@ -699,7 +693,7 @@ export function reefCatchesByDate(
          AND (? IS NULL OR rarity = ?)
        ORDER BY caught_at DESC, id DESC`,
     )
-    .all(date, rarity, rarity) as unknown as Omit<CatchRow, 'agent'>[];
+    .all(date, rarity, rarity) as unknown as CatchColumns[];
 
   return { date, count: catches.length, catches: catches.map(deriveCatch) };
 }

@@ -10,6 +10,7 @@
 // A given entry always looks the same — art derives from the catalog, never
 // the catch seed — so the collection reads like a field guide.
 
+import { z } from 'zod';
 import {
   ENTRIES,
   resolveEntry,
@@ -65,7 +66,8 @@ export function seededRng(seed: string): () => number {
 
 export const SPECIES_COUNT = ENTRIES.length; // 256 — permanent
 
-export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+export const RarityValue = z.enum(['common', 'uncommon', 'rare', 'epic', 'legendary']);
+export type Rarity = z.infer<typeof RarityValue>;
 
 export function speciesName(species: number): string {
   if (isLegendary(species)) return LEGENDARY_DEFS[legendaryIndex(species)]!.name;

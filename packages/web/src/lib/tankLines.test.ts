@@ -9,7 +9,7 @@ function row(id: string, over: Partial<ReefSessionRow> = {}): ReefSessionRow {
   return {
     agent: 'claude', unpricedEvents: 0, session_id: id, label: id, project: '/src/p',
     started_at: NOW - 3600, ended_at: NOW - 60, tokens: 1000, rewardTokens: 1000, cost: 0, catches: 0,
-    parent_session_id: null, ...over,
+    native_id: null, parent_session_id: null, model_provider: null, source: null, ...over,
   };
 }
 
