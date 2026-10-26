@@ -5,29 +5,40 @@ import {
 import { SPECIES_DEFS, speciesInfo, speciesName, speciesRarity } from './fish.ts';
 
 describe('legendary ladder', () => {
-  it('awards by threshold, regular before shiny on ties', () => {
+  it('awards every regular before any shiny', () => {
     expect(legendaryAwards(99_999_999)).toEqual([]);
     expect(legendaryAwards(100_000_000).map((a) => [a.index, a.shiny])).toEqual([[0, false]]);
-    expect(legendaryAwards(200_000_000).map((a) => [a.index, a.shiny]))
-      .toEqual([[0, false], [1, false], [0, true]]);
+    // The second regular arrives alone: no shiny rides along with it.
+    expect(legendaryAwards(200_000_000).map((a) => [a.index, a.shiny])).toEqual([[0, false], [1, false]]);
     const at7b = legendaryAwards(7_000_000_000);
     expect(at7b.filter((a) => !a.shiny)).toHaveLength(7);
-    expect(at7b.filter((a) => a.shiny)).toHaveLength(6);
-    expect(legendaryAwards(409_600_000_000)).toHaveLength(24);
+    expect(at7b.filter((a) => a.shiny)).toHaveLength(0);
+    expect(legendaryAwards(204_800_000_000).map((a) => a.shiny)).toEqual(Array(12).fill(false));
+    expect(legendaryAwards(614_400_000_000)).toHaveLength(24);
     expect(legendaryAwards(1e15)).toHaveLength(24);
     expect(at7b[0]).toMatchObject({ seed: 'legend#0', species: 1000, threshold: 100_000_000 });
-    expect(at7b.find((a) => a.shiny)?.seed).toBe('legend-shiny#0');
+  });
+
+  it('places every shiny after the last regular', () => {
+    const regulars = LEGENDARY_DEFS.map((_, i) => legendaryThreshold(i, false));
+    const shinies = LEGENDARY_DEFS.map((_, i) => legendaryThreshold(i, true));
+    expect(Math.min(...shinies)).toBeGreaterThan(Math.max(...regulars));
+    expect(legendaryAwards(1e15).map((a) => a.shiny)).toEqual([...Array(12).fill(false), ...Array(12).fill(true)]);
   });
 
   it('finds the next legendary', () => {
     expect(nextLegendary(0)).toMatchObject({ index: 0, shiny: false, threshold: 100_000_000 });
     expect(nextLegendary(100_000_000)).toMatchObject({ index: 1, shiny: false });
-    expect(nextLegendary(409_600_000_000)).toBeNull();
+    expect(nextLegendary(204_800_000_000)).toMatchObject({ index: 0, shiny: true, threshold: 205_000_000_000 });
+    expect(nextLegendary(614_400_000_000)).toBeNull();
   });
 
   it('computes thresholds', () => {
     expect(legendaryThreshold(11, false)).toBe(204_800_000_000);
-    expect(legendaryThreshold(0, true)).toBe(200_000_000);
+    // The first shiny comes the first shiny step (200M) past the last regular; steps keep doubling.
+    expect(legendaryThreshold(0, true)).toBe(205_000_000_000);
+    expect(legendaryThreshold(1, true)).toBe(205_200_000_000);
+    expect(legendaryThreshold(11, true)).toBe(614_400_000_000);
   });
 
   it('identifies legendary ids', () => {

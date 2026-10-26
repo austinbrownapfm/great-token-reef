@@ -104,10 +104,21 @@ describe('legendary ladder', () => {
     setSetting(db, 'ladderOffsetTokens', '6900000000');
     claudeUsage(db, 'a', 200_000_000, NOW - 3600);
     const rows = legendaries(db);
-    expect(rows).toHaveLength(13);
-    expect(rows.filter((r) => r.shiny === 0)).toHaveLength(7);
-    expect(rows.filter((r) => r.shiny === 1)).toHaveLength(6);
-    expect(rows.find((r) => r.seed === 'legend-shiny#0')).toMatchObject({ species: 1000, name: 'Tiger Shark' });
+    expect(rows).toHaveLength(7);
+    expect(rows.filter((r) => r.shiny === 1)).toHaveLength(0);
+  });
+
+  it('awards no shiny with the second legendary, and the first shiny only past the last regular', () => {
+    const db = freshDb();
+    claudeUsage(db, 'a', 200_000_000, NOW - 3600);
+    expect(legendaries(db).map((r) => r.seed)).toEqual(['legend#0', 'legend#1']);
+
+    const past = freshDb();
+    setSetting(past, 'ladderOffsetTokens', '204800000000');
+    claudeUsage(past, 'b', 200_000_000, NOW - 3600);
+    const rows = legendaries(past);
+    expect(rows.filter((r) => r.shiny === 0)).toHaveLength(12);
+    expect(rows.filter((r) => r.shiny === 1).map((r) => r.seed)).toEqual(['legend-shiny#0']);
   });
 
   it('adds no rows on a rescan', () => {

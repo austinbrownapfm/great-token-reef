@@ -43,12 +43,14 @@ export interface LegendaryAward {
 
 const REGULAR_BASE = 100_000_000;
 const SHINY_BASE = 200_000_000;
+const LAST_REGULAR = REGULAR_BASE * 2 ** (LEGENDARY_DEFS.length - 1);
 
+// Shinies begin only once every regular is caught: shiny i comes SHINY_BASE * 2^i past the last regular.
 export function legendaryThreshold(index: number, shiny: boolean): number {
-  return (shiny ? SHINY_BASE : REGULAR_BASE) * 2 ** index;
+  return shiny ? LAST_REGULAR + SHINY_BASE * 2 ** index : REGULAR_BASE * 2 ** index;
 }
 
-/** Every legendary earned at this lifetime ladder total, in award order (regular before shiny on ties). */
+/** Every legendary earned at this lifetime ladder total, in award order (all regulars, then the shinies). */
 export function legendaryAwards(ladderTokens: number): LegendaryAward[] {
   return allAwards().filter((a) => a.threshold <= ladderTokens);
 }

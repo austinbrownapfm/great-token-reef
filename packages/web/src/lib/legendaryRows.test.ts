@@ -55,7 +55,7 @@ describe('legendarySlot', () => {
 
   it('shows the regular catch and points at the shiny threshold', () => {
     const reg = row(0, false, 1);
-    expect(legendarySlot([reg], 0)).toEqual({ shiny: false, caught: reg, next: 200_000_000 });
+    expect(legendarySlot([reg], 0)).toEqual({ shiny: false, caught: reg, next: 205_000_000_000 });
   });
 
   it('shows only the shiny once it is caught', () => {
@@ -76,6 +76,6 @@ describe('legendaryProgress', () => {
   });
 
   it('is complete after the shiny Giant Squid', () => {
-    expect(legendaryProgress(500_000_000_000)).toEqual({ from: 409_600_000_000, next: null, pct: 100 });
+    expect(legendaryProgress(700_000_000_000)).toEqual({ from: 614_400_000_000, next: null, pct: 100 });
   });
 });
