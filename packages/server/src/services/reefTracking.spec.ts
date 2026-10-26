@@ -5,10 +5,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FISH_SETS } from '@gtr/shared';
 import type { Db } from '../store/db.ts';
 import { fixtureDb } from './fixtures.ts';
-import {
-  getCodexRewardEpoch, reefCatchesByDate, reefCollection, reefModels, reefProjects, reefSessions,
-  reefSummary, reefTrend, setReefEpoch, storeCodexBatch,
-} from './reef.ts';
+import { reefCatchesByDate, reefCollection } from './reefCollection.ts';
+import { getCodexRewardEpoch, setReefEpoch } from './reefState.ts';
+import { reefModels, reefProjects, reefSessions, reefSummary, reefTrend } from './reefStats.ts';
+import { storeCodexBatch } from './usageStore.ts';
 import { ClaudeUsageScanner } from './claudeUsageScanner.ts';
 import type { CodexSessionRow, CodexUsageRow } from './reefTypes.ts';
 

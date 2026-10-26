@@ -8,25 +8,16 @@ import type { AppEnv } from '../app.ts';
 import { reefClaude } from './reefClaude.ts';
 import { reefCodex } from './reefCodex.ts';
 import { refreshOfficialLimits } from '../services/reefLimits.ts';
-import {
-  getReefBudgets,
-  reefCatchesByDate,
-  reefCollection,
-  reefModels,
-  reefPending,
-  reefProjects,
-  reefSessions,
-  reefSummary,
-  reefTrend,
-  releaseReef,
-  setReefBudgets,
-} from '../services/reef.ts';
+import { reefCatchesByDate, reefCollection } from '../services/reefCollection.ts';
+import { reefPending, releaseReef } from '../services/reefRelease.ts';
+import { getReefBudgets, setReefBudgets } from '../services/reefState.ts';
+import { reefModels, reefProjects, reefSessions, reefSummary, reefTrend } from '../services/reefStats.ts';
 import { FISH_CAPS, reefFishPicks, setReefFishPick } from '../services/reefFish.ts';
 import { listOpenPrs } from '../services/openPrs.ts';
 import { reefRewards, setReefBackdrop, setReefDecor } from '../services/reefSets.ts';
 
 // The Reef — Claude Code and Codex usage + fishing companion. Thin adapters only; the
-// scanner and all SQL live in services/reef.ts.
+// scanners and all SQL live in services/.
 
 const daysParam = (raw: string | undefined, fallback: number) =>
   z.coerce.number().int().min(1).max(3650).default(fallback).parse(raw ?? fallback);

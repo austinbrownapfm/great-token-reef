@@ -3,7 +3,7 @@ import { join, relative } from 'node:path';
 import type { ScannerStatus } from '@gtr/shared';
 import type { Db } from '../store/db.ts';
 import type { Bus } from './bus.ts';
-import { repriceClaudeUsage, storeClaudeBatch } from './reef.ts';
+import { repriceClaudeUsage, storeClaudeBatch } from './usageStore.ts';
 import type { ClaudeTranscript, ClaudeUsageRow } from './reefTypes.ts';
 
 // Tails ~/.claude/projects/**/*.jsonl incrementally: cc_files remembers a byte

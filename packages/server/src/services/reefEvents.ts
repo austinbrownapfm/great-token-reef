@@ -3,7 +3,7 @@ import type { Db } from '../store/db.ts';
 import { deleteSetting, getSetting, setSetting } from './settings.ts';
 
 // The Reef waiting queue for non-fish arrivals (visitors and set rewards).
-// Fish keep cc_catches and their own released mark in reef.ts.
+// Fish keep cc_catches and their own released mark in reefState.ts.
 
 const RELEASED_EVENT_KEY = 'releasedEventId';
 

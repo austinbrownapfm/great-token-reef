@@ -5,7 +5,9 @@ import { reef } from '../routes/reef.ts';
 import type { Bus } from './bus.ts';
 import { fixtureDb } from './fixtures.ts';
 import { emitReefEvent, getReleasedEventId, pendingEvents } from './reefEvents.ts';
-import { getReleasedCatchId, reefPending, reefSummary, releaseReef } from './reef.ts';
+import { reefPending, releaseReef } from './reefRelease.ts';
+import { getReleasedCatchId } from './reefState.ts';
+import { reefSummary } from './reefStats.ts';
 
 vi.mock('./reefLimits.ts', () => ({ refreshOfficialLimits: vi.fn(), getOfficialLimits: vi.fn(() => null) }));
 

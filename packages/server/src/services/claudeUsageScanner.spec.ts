@@ -6,15 +6,10 @@ import { catchesEarned, rollCatch, speciesName } from '@gtr/shared';
 import { fixtureDb } from './fixtures.ts';
 import { estimateCcCost } from './pricing.ts';
 import { ClaudeUsageScanner } from './claudeUsageScanner.ts';
-import {
-  getReefBudgets,
-  repriceClaudeUsage,
-  reefCollection,
-  reefSessions,
-  reefSummary,
-  setReefBudgets,
-  setReefEpoch,
-} from './reef.ts';
+import { reefCollection } from './reefCollection.ts';
+import { getReefBudgets, setReefBudgets, setReefEpoch } from './reefState.ts';
+import { reefSessions, reefSummary } from './reefStats.ts';
+import { repriceClaudeUsage } from './usageStore.ts';
 
 // The Reef: incremental JSONL scanner + deterministic catch engine.
 // Fixture files mirror the real Claude Code transcript line shapes

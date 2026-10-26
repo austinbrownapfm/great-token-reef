@@ -5,18 +5,26 @@ import type { Db } from '../store/db.ts';
 import type { ClaudeUsageScanner } from '../services/claudeUsageScanner.ts';
 import type { CodexUsageScanner } from '../services/codexUsageScanner.ts';
 import { reef } from './reef.ts';
-import { reefModels, reefProjects, reefSessions, reefSummary, reefTrend, releaseReef } from '../services/reef.ts';
+import { releaseReef } from '../services/reefRelease.ts';
+import { reefModels, reefProjects, reefSessions, reefSummary, reefTrend } from '../services/reefStats.ts';
 
-vi.mock('../services/reef.ts', () => ({
+vi.mock('../services/reefStats.ts', () => ({
   reefSummary: vi.fn(() => ({ tokens: 123 })),
   reefTrend: vi.fn(() => []),
   reefModels: vi.fn(() => []),
   reefProjects: vi.fn(() => []),
   reefSessions: vi.fn(() => []),
+}));
+vi.mock('../services/reefCollection.ts', () => ({
   reefCollection: vi.fn(() => ({})),
   reefCatchesByDate: vi.fn(() => ({})),
+}));
+vi.mock('../services/reefState.ts', () => ({
   getReefBudgets: vi.fn(() => ({})),
   setReefBudgets: vi.fn(() => ({})),
+}));
+vi.mock('../services/reefRelease.ts', () => ({
+  reefPending: vi.fn(() => ({})),
   releaseReef: vi.fn(() => ({ releasedId: 5, releasedEventId: 2 })),
 }));
 vi.mock('../services/reefLimits.ts', () => ({ refreshOfficialLimits: vi.fn() }));

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { fixtureDb } from './fixtures.ts';
-import { reefCollection, reefPending, reefSummary, releaseReef } from './reef.ts';
+import { reefCollection } from './reefCollection.ts';
+import { reefPending, releaseReef } from './reefRelease.ts';
+import { reefSummary } from './reefStats.ts';
 
 // Reef read models: burn baseline and the release mark. Scanner-driven tests
 // live in claudeUsageScanner.spec.ts.

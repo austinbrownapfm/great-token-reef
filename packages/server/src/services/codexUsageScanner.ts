@@ -4,7 +4,8 @@ import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { ScannerStatus } from '@gtr/shared';
 import type { Db } from '../store/db.ts';
 import type { Bus } from './bus.ts';
-import { getCodexRewardEpoch, storeCodexBatch } from './reef.ts';
+import { getCodexRewardEpoch } from './reefState.ts';
+import { storeCodexBatch } from './usageStore.ts';
 import { CODEX_PARSER_VERSION, codexDiagnostic, newCodexParserState, parseCodexLine, type CodexParserState } from './codexUsage.ts';
 import type { CodexLimitSnapshot, CodexSessionRow, CodexUsageRow } from './reefTypes.ts';
 

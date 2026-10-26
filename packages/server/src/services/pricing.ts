@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 // The sheet lists display names only; the IDs are the ones Claude Code logs.
 // 5-minute cache writes are 1.25× input and 1-hour writes 2× for every model;
 // cache reads default to 0.1× input. Editing this table re-prices stored
-// history on the next server start (see repriceClaudeUsage in reef.ts).
+// history on the next server start (see repriceClaudeUsage in usageStore.ts).
 interface ClaudeRate {
   input: number;
   output: number;

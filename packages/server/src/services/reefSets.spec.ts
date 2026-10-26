@@ -7,7 +7,8 @@ import { BACKDROP_FOR_WATER, DECOR_FOR_FAMILY, FISH_SETS, type FishSet } from '@
 import type { AppEnv } from '../app.ts';
 import type { Bus } from './bus.ts';
 import { fixtureDb } from './fixtures.ts';
-import { releaseReef, setReefEpoch } from './reef.ts';
+import { releaseReef } from './reefRelease.ts';
+import { setReefEpoch } from './reefState.ts';
 import { ClaudeUsageScanner } from './claudeUsageScanner.ts';
 import { checkSetCompletions, reefRewards, setReefBackdrop, setReefDecor } from './reefSets.ts';
 import { reef } from '../routes/reef.ts';

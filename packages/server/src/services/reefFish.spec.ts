@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppEnv } from '../app.ts';
 import type { Bus } from './bus.ts';
 import { fixtureDb } from './fixtures.ts';
-import { getReleasedCatchId, releaseReef } from './reef.ts';
+import { releaseReef } from './reefRelease.ts';
+import { getReleasedCatchId } from './reefState.ts';
 import { FISH_CAPS, reefFishPicks, setReefFishPick } from './reefFish.ts';
 import { reef } from '../routes/reef.ts';
 

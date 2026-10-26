@@ -1,6 +1,6 @@
 import { FISH_CAPS, fishPickSchema, type FishPicks, type FishView } from '@gtr/shared';
 import type { Db } from '../store/db.ts';
-import { getReleasedCatchId } from './reef.ts';
+import { getReleasedCatchId } from './reefState.ts';
 import { getSetting, setSetting } from './settings.ts';
 
 export { FISH_CAPS, type FishView };

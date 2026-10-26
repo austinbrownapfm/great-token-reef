@@ -1,6 +1,7 @@
 import { LEGENDARY_DEFS, LEGENDARY_ID_BASE, legendaryAwards } from '@gtr/shared';
 import type { Db } from '../store/db.ts';
-import { TOK, getReefEpoch, readCodexRewardEpoch } from './reef.ts';
+import { TOK } from './reefRows.ts';
+import { getReefEpoch, readCodexRewardEpoch } from './reefState.ts';
 import { getSetting } from './settings.ts';
 
 function ladderOffset(db: Db): number {
