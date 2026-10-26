@@ -1,6 +1,8 @@
 import type {
-  ConnectStatus, FishPicks, OfficialLimits, OpenPr, ReefCatchesByDate, ReefCollection, ReefModelRow, ReefPending,
-  ReefProjectRow, ReefSessionRow, ReefSummary, ReefTrendRow, ScannerStatus,
+  ConnectExcludedReposBody, ConnectGithubBody, ConnectJiraBody, ConnectOrgsBody, ConnectStatus, FishPicks,
+  OfficialLimits, OpenPr, ReefAgentFilter, ReefBudgets, ReefCatchesByDate, ReefCollection, ReefDecorBody,
+  ReefModelRow, ReefPending, ReefProjectRow, ReefReleaseResult, ReefRewards, ReefScanResult, ReefSessionRow,
+  ReefSummary, ReefTrendRow, ScannerStatus,
 } from '@gtr/shared';
 
 // Thin typed fetch client over the REST API. Types come from @gtr/shared —
@@ -8,8 +10,8 @@ import type {
 
 export type {
   CodexLimits, CodexLimitWindow, OfficialLimits, OfficialWindow, ReefCatch, ReefCatchesByDate, ReefCollection,
-  ReefEvent, ReefEventKind, ReefLegendaryRow, ReefModelRow, ReefPending, ReefProjectRow, ReefSessionRow,
-  ReefSpeciesRow, ReefSummary, ReefTrendRow,
+  ReefAgentFilter, ReefBudgets, ReefEvent, ReefEventKind, ReefLegendaryRow, ReefModelRow, ReefPending, ReefProjectRow,
+  ReefRewards, ReefSessionRow, ReefSpeciesRow, ReefSummary, ReefTrendRow,
 } from '@gtr/shared';
 
 async function get<T>(path: string, params?: Record<string, string | number | boolean>): Promise<T> {
@@ -38,55 +40,46 @@ async function send<T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string
 
 // --- The Reef (Claude Code and Codex usage companion) --------------------------------
 
-export type ReefAgent = 'all' | 'claude' | 'codex';
-
 export type ReefFishPicks = FishPicks;
 
-export interface ReefRewards {
-  badges: string[];
-  decor: { item: string; shown: boolean; xFrac: number | null }[];
-  backdrops: string[];
-  activeBackdrop: string;
-}
 
 export const api = {
   reef: {
     claudeStatus: () => get<ScannerStatus>('/api/reef/claude/status'),
     codexStatus: () => get<ScannerStatus>('/api/reef/codex/status'),
-    summary: (agent: ReefAgent = 'claude') => get<ReefSummary>('/api/reef/summary', { agent }),
-    trend: (days = 30, agent: ReefAgent = 'claude') => get<ReefTrendRow[]>('/api/reef/trend', { days, agent }),
-    models: (days = 30, agent: ReefAgent = 'claude') => get<ReefModelRow[]>('/api/reef/models', { days, agent }),
-    projects: (days = 30, agent: ReefAgent = 'claude') => get<ReefProjectRow[]>('/api/reef/projects', { days, agent }),
-    sessions: (days = 7, agent: ReefAgent = 'claude', limit?: number) =>
+    summary: (agent: ReefAgentFilter = 'claude') => get<ReefSummary>('/api/reef/summary', { agent }),
+    trend: (days = 30, agent: ReefAgentFilter = 'claude') => get<ReefTrendRow[]>('/api/reef/trend', { days, agent }),
+    models: (days = 30, agent: ReefAgentFilter = 'claude') => get<ReefModelRow[]>('/api/reef/models', { days, agent }),
+    projects: (days = 30, agent: ReefAgentFilter = 'claude') => get<ReefProjectRow[]>('/api/reef/projects', { days, agent }),
+    sessions: (days = 7, agent: ReefAgentFilter = 'claude', limit?: number) =>
       get<ReefSessionRow[]>('/api/reef/sessions', limit === undefined ? { days, agent } : { days, agent, limit }),
     collection: () => get<ReefCollection>('/api/reef/collection'),
     catches: (opts: { date?: string; rarity?: string } = {}) =>
       get<ReefCatchesByDate>('/api/reef/catches', opts),
-    scan: () => send<{ files: number; messages: number; catches: number }>('POST', '/api/reef/scan'),
+    scan: () => send<ReefScanResult>('POST', '/api/reef/scan'),
     refreshLimits: () => send<OfficialLimits>('POST', '/api/reef/limits/refresh'),
     pending: () => get<ReefPending>('/api/reef/pending'),
     release: (upToId: number, upToEventId?: number) =>
-      send<{ releasedId: number; releasedEventId: number }>('POST', '/api/reef/release', { upToId, upToEventId }),
+      send<ReefReleaseResult>('POST', '/api/reef/release', { upToId, upToEventId }),
     rewards: () => get<ReefRewards>('/api/reef/rewards'),
-    setDecor: (item: string, patch: { shown?: boolean; xFrac?: number }) =>
+    setDecor: (item: string, patch: ReefDecorBody) =>
       send<ReefRewards>('PUT', `/api/reef/decor/${encodeURIComponent(item)}`, patch),
     setBackdrop: (backdrop: string) => send<ReefRewards>('PUT', '/api/reef/backdrop', { backdrop }),
     fish: () => get<ReefFishPicks>('/api/reef/fish'),
     setFish: (view: 'strip' | 'full', species: number[]) =>
       send<ReefFishPicks>('PUT', `/api/reef/fish/${view}`, { species }),
-    budgets: () => get<{ window5h: number | null; week: number | null }>('/api/reef/budgets'),
-    setBudgets: (b: { window5h: number | null; week: number | null }) =>
-      send<{ window5h: number | null; week: number | null }>('PUT', '/api/reef/budgets', b),
+    budgets: () => get<ReefBudgets>('/api/reef/budgets'),
+    setBudgets: (b: ReefBudgets) => send<ReefBudgets>('PUT', '/api/reef/budgets', b),
     prs: () => get<OpenPr[]>('/api/reef/prs'),
   },
   connect: {
     status: () => get<ConnectStatus>('/api/connect'),
-    saveGithub: (body: { source: 'gh' } | { source: 'token'; token: string }) =>
+    saveGithub: (body: ConnectGithubBody) =>
       send<ConnectStatus>('PUT', '/api/connect/github', body),
-    saveGithubExcludedRepos: (repos: string[]) => send<ConnectStatus>('PUT', '/api/connect/github/excluded-repos', { repos }),
-    saveGithubOrgs: (orgs: string[]) => send<ConnectStatus>('PUT', '/api/connect/github/orgs', { orgs }),
+    saveGithubExcludedRepos: (repos: string[]) => send<ConnectStatus>('PUT', '/api/connect/github/excluded-repos', { repos } satisfies ConnectExcludedReposBody),
+    saveGithubOrgs: (orgs: string[]) => send<ConnectStatus>('PUT', '/api/connect/github/orgs', { orgs } satisfies ConnectOrgsBody),
     disconnectGithub: () => send<ConnectStatus>('DELETE', '/api/connect/github'),
-    saveJira: (body: { baseUrl: string; email: string; apiToken: string }) =>
+    saveJira: (body: ConnectJiraBody) =>
       send<ConnectStatus>('PUT', '/api/connect/jira', body),
     disconnectJira: () => send<ConnectStatus>('DELETE', '/api/connect/jira'),
   },

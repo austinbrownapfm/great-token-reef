@@ -1,4 +1,4 @@
-import type { ConnectStatus } from '@gtr/shared';
+import type { ConnectGithubBody, ConnectJiraBody, ConnectStatus } from '@gtr/shared';
 import type { Db } from '../store/db.ts';
 import type { KeychainAccount } from './keychain.ts';
 import type { JiraConfig } from './jira.ts';
@@ -18,8 +18,6 @@ export interface ConnectDeps {
   claudeDetected(): boolean;
   onChange(): void;
 }
-
-export type GithubConnectInput = { source: 'gh' } | { source: 'token'; token: string };
 
 const ORG = /^[A-Za-z0-9-]+$/;
 const REPO = /^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/;
@@ -86,7 +84,7 @@ export function connectStatus(db: Db, deps: ConnectDeps): ConnectStatus {
   };
 }
 
-export async function connectGithub(db: Db, deps: ConnectDeps, input: GithubConnectInput): Promise<ConnectStatus> {
+export async function connectGithub(db: Db, deps: ConnectDeps, input: ConnectGithubBody): Promise<ConnectStatus> {
   let secret: string | undefined;
   try {
     let token: string;
@@ -155,7 +153,7 @@ function normalizeBaseUrl(raw: string): string {
 export async function connectJira(
   db: Db,
   deps: ConnectDeps,
-  input: { baseUrl: string; email: string; apiToken: string },
+  input: ConnectJiraBody,
 ): Promise<ConnectStatus> {
   const apiToken = input.apiToken.trim();
   try {

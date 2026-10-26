@@ -327,7 +327,7 @@ export function Tank({ onHeldRewards }: {
     );
   }, [fish.data, fish.isError, fish.isFetchedAfterMount, fish.isFetching, view, dataReady, pending.isError, release.releasing, bounds, masked, queryClient, reefLegends]);
   // Visible failures: the release queue, collection or picks that did not load or save, and visitor fetches failing on the server.
-  const nowSec = useMinuteClock(!queueHeld && (pending.data?.visitorErrors?.length ?? 0) > 0);
+  const nowSec = useMinuteClock(!queueHeld && (pending.data?.visitorErrors.length ?? 0) > 0);
   const notices = tankNotices({
     queueError: pending.isError ? pending.error.message : null,
     queueHeld,

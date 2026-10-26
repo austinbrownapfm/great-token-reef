@@ -1,7 +1,6 @@
-import type { ReefAgent } from '@gtr/shared';
+import type { ReefAgent, ReefAgentFilter } from '@gtr/shared';
 
-export type { ReefAgent };
-export type ReefAgentFilter = ReefAgent | 'all';
+export type { ReefAgent, ReefAgentFilter };
 
 export interface ClaudeUsageRow {
   requestId: string;

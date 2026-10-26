@@ -11,6 +11,10 @@ const int = z.number().int();
 export const ReefAgent = z.enum(['claude', 'codex']);
 export type ReefAgent = z.infer<typeof ReefAgent>;
 
+/** The `agent` query filter on usage endpoints. */
+export const ReefAgentFilter = z.enum(['all', 'claude', 'codex']);
+export type ReefAgentFilter = z.infer<typeof ReefAgentFilter>;
+
 export const ReefCatch = z.strictObject({
   /** null for legendaries, which belong to the shared collection */
   agent: ReefAgent.nullable(),
@@ -187,3 +191,33 @@ export const ReefPending = z.strictObject({
   visitorErrors: z.array(ReefVisitorError),
 });
 export type ReefPending = z.infer<typeof ReefPending>;
+
+export const ReefReleaseResult = z.strictObject({ releasedId: int, releasedEventId: int });
+export type ReefReleaseResult = z.infer<typeof ReefReleaseResult>;
+
+export const ReefRewards = z.strictObject({
+  badges: z.array(z.string()),
+  decor: z.array(z.strictObject({ item: z.string(), shown: z.boolean(), xFrac: z.number().nullable() })),
+  backdrops: z.array(z.string()),
+  activeBackdrop: z.string(),
+});
+export type ReefRewards = z.infer<typeof ReefRewards>;
+
+export const ReefScanResult = z.strictObject({ files: int, messages: int, catches: int });
+export type ReefScanResult = z.infer<typeof ReefScanResult>;
+
+// Request bodies. Plain objects, unlike the responses: extra keys from a client are dropped, not refused.
+
+export const ReefReleaseBody = z.object({ upToId: int.nonnegative(), upToEventId: int.nonnegative().optional() });
+export type ReefReleaseBody = z.infer<typeof ReefReleaseBody>;
+
+export const ReefDecorBody = z.object({ shown: z.boolean().optional(), xFrac: z.number().min(0).max(1).optional() });
+export type ReefDecorBody = z.infer<typeof ReefDecorBody>;
+
+export const ReefBackdropBody = z.object({ backdrop: z.string().min(1) });
+export type ReefBackdropBody = z.infer<typeof ReefBackdropBody>;
+
+/** Token budgets per window; null means "estimate from observed peaks". Also the GET/PUT response. */
+export const ReefBudgetsBody = z.object({ window5h: int.positive().nullable(), week: int.positive().nullable() });
+export const ReefBudgets = z.strictObject(ReefBudgetsBody.shape);
+export type ReefBudgets = z.infer<typeof ReefBudgets>;

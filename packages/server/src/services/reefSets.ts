@@ -1,4 +1,4 @@
-import { BACKDROP_FOR_WATER, DECOR_FOR_FAMILY, setsCompletedBy, type FishSet } from '@gtr/shared';
+import { BACKDROP_FOR_WATER, DECOR_FOR_FAMILY, setsCompletedBy, type FishSet, type ReefDecorBody, type ReefRewards } from '@gtr/shared';
 import type { Db } from '../store/db.ts';
 import { emitReefEvent, getReleasedEventId } from './reefEvents.ts';
 import { getSetting, setSetting } from './settings.ts';
@@ -8,12 +8,7 @@ import { getSetting, setSetting } from './settings.ts';
 
 export type SetReward = { type: 'badge' } | { type: 'decor'; item: string } | { type: 'backdrop'; item: string };
 
-export interface ReefRewards {
-  badges: string[];
-  decor: { item: string; shown: boolean; xFrac: number | null }[];
-  backdrops: string[];
-  activeBackdrop: string;
-}
+export type { ReefRewards };
 
 const BACKDROP_KEY = 'backdrop';
 const OPEN_WATER = 'open-water';
@@ -80,7 +75,7 @@ export function reefRewards(db: Db): ReefRewards {
 
 /** Null when the item is not a released decor piece; `changed` is false for an empty patch. */
 export function setReefDecor(
-  db: Db, item: string, patch: { shown?: boolean; xFrac?: number },
+  db: Db, item: string, patch: ReefDecorBody,
 ): { rewards: ReefRewards; changed: boolean } | null {
   if (BACKDROPS.has(item) || !releasedItems(db).some((r) => r.item === item)) return null;
   if (patch.shown === undefined && patch.xFrac === undefined) return { rewards: reefRewards(db), changed: false };

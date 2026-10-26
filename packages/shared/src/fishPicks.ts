@@ -10,7 +10,10 @@ export const fishPickSchema = (view: FishView) =>
     .max(FISH_CAPS[view])
     .refine((species) => new Set(species).size === species.length, 'species must not repeat');
 
-export const FishPicks = z.object({
+/** PUT /api/reef/fish/:view request body. */
+export const fishPickBody = (view: FishView) => z.object({ species: fishPickSchema(view) });
+
+export const FishPicks = z.strictObject({
   strip: fishPickSchema('strip').nullable(),
   full: fishPickSchema('full').nullable(),
 });

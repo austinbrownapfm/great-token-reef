@@ -12,7 +12,7 @@ import {
 } from '@gtr/shared';
 import {
   api,
-  type ReefAgent,
+  type ReefAgentFilter,
   type ReefCollection,
   type CodexLimits,
   type ReefSessionRow,
@@ -49,7 +49,7 @@ export function ReefView() {
   useEffect(() => uiEvent('reef.view'), []);
   const navigate = useNavigate();
   const { tab = 'collection', agent: agentParam = 'all', species: highlight } = useSearch({ strict: false }) as {
-    tab?: ReefTab; agent?: ReefAgent; species?: number;
+    tab?: ReefTab; agent?: ReefAgentFilter; species?: number;
   };
   const codexStatus = useQuery({ queryKey: ['reef', 'codex-status'], queryFn: api.reef.codexStatus, refetchInterval: 60_000 });
   const codexShown = codexVisible(codexStatus.data);
@@ -192,7 +192,7 @@ function Header({ summary, codexShown }: { summary?: ReefSummary; codexShown: bo
 
 // --- vitals: gauges + burn + today -------------------------------------------
 
-function Vitals({ s, agent }: { s: ReefSummary; agent: ReefAgent }) {
+function Vitals({ s, agent }: { s: ReefSummary; agent: ReefAgentFilter }) {
   const q = s.claudeQuota;
   const now = Math.floor(Date.now() / 1000);
   const off5h = q.official?.fiveHour;
@@ -209,12 +209,12 @@ function Vitals({ s, agent }: { s: ReefSummary; agent: ReefAgent }) {
     <>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Card title="Today">
-          <div className="text-xl font-semibold">{costLabel(s.today.cost, s.today.unpricedEvents ?? s.unpricedEvents)}</div>
+          <div className="text-xl font-semibold">{costLabel(s.today.cost, s.today.unpricedEvents)}</div>
           <div className="mt-1 text-xs text-zinc-400">
             {compactNumber(s.today.tokens)} tok · {s.today.catches} 🎣
           </div>
           <div className="mt-1 text-xs text-zinc-400">
-            {costLabel(s.week.cost, s.week.unpricedEvents ?? s.unpricedEvents)} · {compactNumber(s.week.tokens)} tok this week
+            {costLabel(s.week.cost, s.week.unpricedEvents)} · {compactNumber(s.week.tokens)} tok this week
           </div>
           <div className="mt-1 text-xs text-zinc-400">
             {compactNumber(s.rewards.tokens)} shared depth
@@ -268,7 +268,7 @@ function Vitals({ s, agent }: { s: ReefSummary; agent: ReefAgent }) {
       <Card title="Burn rate (last hour)">
         <div className="text-xl font-semibold">{compactNumber(s.burn.tokensPerMin)}/min</div>
         <div className="text-xs text-zinc-400">
-          {costLabel(s.burn.costPerHour, s.burn.unpricedEvents ?? s.unpricedEvents)}/hr · 7d avg {compactNumber(s.burn.tokensPerMin7d)}/min
+          {costLabel(s.burn.costPerHour, s.burn.unpricedEvents)}/hr · 7d avg {compactNumber(s.burn.tokensPerMin7d)}/min
         </div>
       </Card>
       </div>
@@ -309,7 +309,7 @@ function costLabel(cost: number, unpricedEvents = 0): string {
 }
 
 /** The 4 most recently active sessions, each with its next-fish rung progress. */
-function SessionCards({ agent }: { agent: ReefAgent }) {
+function SessionCards({ agent }: { agent: ReefAgentFilter }) {
   const sessions = useQuery({
     queryKey: ['reef', 'sessions', 3650, agent],
     queryFn: () => api.reef.sessions(3650, agent),
@@ -402,7 +402,7 @@ function GaugeCard({ title, tokens, budget, estimated, footer }: {
 
 // --- daily trend --------------------------------------------------------------
 
-function TrendChart({ agent }: { agent: ReefAgent }) {
+function TrendChart({ agent }: { agent: ReefAgentFilter }) {
   const [days, setDays] = useState(30);
   const trend = useQuery({ queryKey: ['reef', 'trend', days, agent], queryFn: () => api.reef.trend(days, agent) });
 
@@ -490,7 +490,7 @@ const th = 'py-1 pr-3 text-left text-xs font-semibold uppercase tracking-wide te
 const thr = 'py-1 pr-3 text-right text-xs font-semibold uppercase tracking-wide text-zinc-400';
 const td = 'border-t border-zinc-200 py-1.5 pr-3 dark:border-zinc-800';
 
-function ModelsTable({ agent }: { agent: ReefAgent }) {
+function ModelsTable({ agent }: { agent: ReefAgentFilter }) {
   const models = useQuery({ queryKey: ['reef', 'models', 30, agent], queryFn: () => api.reef.models(30, agent) });
   return (
     <section>
@@ -519,7 +519,7 @@ function ModelsTable({ agent }: { agent: ReefAgent }) {
   );
 }
 
-function ProjectsTable({ agent }: { agent: ReefAgent }) {
+function ProjectsTable({ agent }: { agent: ReefAgentFilter }) {
   const projects = useQuery({ queryKey: ['reef', 'projects', 30, agent], queryFn: () => api.reef.projects(30, agent) });
   return (
     <section>
@@ -547,7 +547,7 @@ function ProjectsTable({ agent }: { agent: ReefAgent }) {
   );
 }
 
-function SessionsTable({ agent }: { agent: ReefAgent }) {
+function SessionsTable({ agent }: { agent: ReefAgentFilter }) {
   const [days, setDays] = useState(7);
   const sessions = useQuery({ queryKey: ['reef', 'sessions', days, agent], queryFn: () => api.reef.sessions(days, agent) });
   return (

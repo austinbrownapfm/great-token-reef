@@ -134,7 +134,7 @@ export function useReefSummary(): ReefSummary | undefined {
 }
 
 function spendLabel(s: ReefSummary): string {
-  const partial = (s.today.unpricedEvents ?? s.unpricedEvents) > 0 ? ' known subtotal' : '';
+  const partial = s.today.unpricedEvents > 0 ? ' known subtotal' : '';
   return `$${s.today.cost.toFixed(2)}${partial} today`;
 }
 

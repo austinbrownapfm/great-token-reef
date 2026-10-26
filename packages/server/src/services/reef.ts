@@ -8,12 +8,14 @@ import {
   type QuotaBurn,
   type QuotaWeek,
   type ReefCatch,
+  type ReefBudgets,
   type ReefCatchesByDate,
   type ReefCollection,
   type ReefLegendaryRow,
   type ReefModelRow,
   type ReefPending,
   type ReefProjectRow,
+  type ReefReleaseResult,
   type ReefSessionRow,
   type ReefSpeciesRow,
   type ReefSummary,
@@ -323,7 +325,7 @@ function pendingCount(db: Db): number {
   return catches + pendingEventCount(db);
 }
 
-export function releaseReef(db: Db, upToId: number, upToEventId?: number): { releasedId: number; releasedEventId: number } {
+export function releaseReef(db: Db, upToId: number, upToEventId?: number): ReefReleaseResult {
   // SAVEPOINT, not BEGIN, so a caller already inside a transaction still nests.
   db.exec('SAVEPOINT reef_release');
   let catches: { releasedId: number; n: number };
@@ -380,11 +382,6 @@ export function setReefEpoch(db: Db, ts: number): void {
 }
 
 const BUDGET_KEY = 'budgets';
-
-export interface ReefBudgets {
-  window5h: number | null;
-  week: number | null;
-}
 
 export function getReefBudgets(db: Db): ReefBudgets {
   const raw = getSetting(db, BUDGET_KEY);

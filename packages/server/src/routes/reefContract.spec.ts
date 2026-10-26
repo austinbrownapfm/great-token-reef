@@ -3,8 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
-  ReefCatchesByDate, ReefCollection, ReefModelRow, ReefPending, ReefProjectRow, ReefSessionRow, ReefSummary,
-  ReefTrendRow,
+  ConnectStatus, FISH_SETS, FishPicks, OpenPr, ReefBudgets, ReefCatchesByDate, ReefCollection, ReefModelRow,
+  ReefPending, ReefProjectRow, ReefReleaseResult, ReefRewards, ReefScanResult, ReefSessionRow, ReefSummary,
+  ReefTrendRow, ScannerStatus,
 } from '@gtr/shared';
 import { z } from 'zod';
 import { createApp } from '../app.ts';
@@ -12,9 +13,10 @@ import { Bus } from '../services/bus.ts';
 import { ClaudeUsageScanner } from '../services/claudeUsageScanner.ts';
 import { CodexUsageScanner } from '../services/codexUsageScanner.ts';
 import { fakeConnectDeps, fixtureDb } from '../services/fixtures.ts';
-import { setReefEpoch } from '../services/reef.ts';
+import { releaseReef, setReefEpoch } from '../services/reef.ts';
 import { recordVisitorFetch } from '../services/reefEvents.ts';
 import { mapOauthUsage } from '../services/reefLimits.ts';
+import { checkSetCompletions } from '../services/reefSets.ts';
 import { setSetting } from '../services/settings.ts';
 
 // The API contract, end to end: real logs go through the real scanners and award
@@ -73,8 +75,7 @@ beforeAll(async () => {
     reefScanner: new ClaudeUsageScanner({ db, dir: join(root, 'claude') }),
     codexScanner: new CodexUsageScanner({ db, roots: [join(root, 'codex')] }),
   });
-  const scan = await app.request('/api/reef/scan', { method: 'POST', headers: { 'content-type': 'application/json' } });
-  expect(await scan.json()).toMatchObject({ messages: 6 });
+  expect(await send('POST', '/api/reef/scan', undefined, ReefScanResult)).toMatchObject({ messages: 6 });
 });
 
 afterAll(() => {
@@ -82,13 +83,17 @@ afterAll(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-async function get<T>(path: string, schema: z.ZodType<T>, on = app): Promise<T> {
-  const res = await on.request(path);
+async function parse<T>(path: string, res: Response, schema: z.ZodType<T>): Promise<T> {
   expect(res.status).toBe(200);
   const parsed = schema.safeParse(await res.json());
   if (!parsed.success) throw new Error(`${path} broke the contract:\n${z.prettifyError(parsed.error)}`);
   return parsed.data;
 }
+const get = async <T>(path: string, schema: z.ZodType<T>, on = app) => parse(path, await on.request(path), schema);
+const send = async <T>(method: string, path: string, body: unknown, schema: z.ZodType<T>, on = app) =>
+  parse(path, await on.request(path, {
+    method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body),
+  }), schema);
 
 describe('Reef API contract', () => {
   it('GET /summary', async () => {
@@ -143,10 +148,8 @@ describe('Reef API contract', () => {
   it('GET /collection reports a released best size once the tank is released', async () => {
     const { count, all } = await get('/api/reef/pending', ReefPending);
     expect(count).toBeGreaterThan(0);
-    const release = await app.request('/api/reef/release', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ upToId: Math.max(...all.map((c) => c.id)) }),
-    });
-    expect(release.status).toBe(200);
+    const release = await send('POST', '/api/reef/release', { upToId: Math.max(...all.map((c) => c.id)) }, ReefReleaseResult);
+    expect(release.releasedId).toBe(Math.max(...all.map((c) => c.id)));
     const col = await get('/api/reef/collection', ReefCollection);
     expect(col.species.every((s) => typeof s.released_best_size === 'number')).toBe(true);
   });
@@ -181,5 +184,57 @@ describe('Reef API contract', () => {
     });
     expect(await get('/api/reef/summary', ReefSummary, stale)).toMatchObject({ official: null, codexLimits: null });
     expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it('GET and PUT /budgets', async () => {
+    expect(await get('/api/reef/budgets', ReefBudgets)).toEqual({ window5h: null, week: null });
+    expect(await send('PUT', '/api/reef/budgets', { window5h: 90_000_000, week: null }, ReefBudgets))
+      .toEqual({ window5h: 90_000_000, week: null });
+  });
+
+  it('GET and PUT /fish', async () => {
+    const { recent } = await get('/api/reef/collection', ReefCollection);
+    const picks = await send('PUT', '/api/reef/fish/strip', { species: [recent[0]!.species] }, FishPicks);
+    expect(picks.strip).toEqual([recent[0]!.species]);
+    expect(await get('/api/reef/fish', FishPicks)).toEqual(picks);
+  });
+
+  it('GET /prs, both scanner statuses, and the Connect status', async () => {
+    expect(await get('/api/reef/prs', z.array(OpenPr))).toEqual([]);
+    expect((await get('/api/reef/claude/status', ScannerStatus)).files).toBe(1);
+    expect((await get('/api/reef/codex/status', ScannerStatus)).files).toBe(1);
+    expect((await get('/api/connect', ConnectStatus)).github.connected).toBe(false);
+  });
+
+  it('POST /events/ui accepts the shared body', async () => {
+    expect(await send('POST', '/api/events/ui', { name: 'reef.view' }, z.strictObject({ ok: z.literal(true) }))).toEqual({ ok: true });
+  });
+
+  it('GET /rewards and the decor and backdrop writes, once every set is complete and released', async () => {
+    const db = fixtureDb();
+    const insert = db.prepare(
+      `INSERT INTO cc_catches (seed, session_id, catch_index, caught_at, project, depth_tokens, species, name, rarity)
+       VALUES (?, 's', ?, ?, '/p', 1, ?, 'x', 'common')`,
+    );
+    const entries = [...new Set(FISH_SETS.flatMap((set) => set.entries))];
+    entries.forEach((species, i) => insert.run(`all#${i}`, i, NOW, species));
+    checkSetCompletions(db, NOW);
+    const maxEvent = (db.prepare('SELECT MAX(id) AS m FROM reef_events').get() as { m: number }).m;
+    releaseReef(db, entries.length, maxEvent);
+    const rewarded = createApp({
+      db, bus: new Bus(), connect: fakeConnectDeps(),
+      reefScanner: new ClaudeUsageScanner({ db, dir: join(root, 'none') }),
+      codexScanner: new CodexUsageScanner({ db, roots: [] }),
+    });
+
+    const rewards = await get('/api/reef/rewards', ReefRewards, rewarded);
+    expect(rewards.badges.length).toBeGreaterThan(0);
+    expect(rewards.decor.length).toBeGreaterThan(0);
+    expect(rewards.backdrops.length).toBeGreaterThan(0);
+    const item = rewards.decor[0]!.item;
+    const moved = await send('PUT', `/api/reef/decor/${encodeURIComponent(item)}`, { shown: false, xFrac: 0.25 }, ReefRewards, rewarded);
+    expect(moved.decor.find((d) => d.item === item)).toEqual({ item, shown: false, xFrac: 0.25 });
+    const backdrop = rewards.backdrops[0]!;
+    expect((await send('PUT', '/api/reef/backdrop', { backdrop }, ReefRewards, rewarded)).activeBackdrop).toBe(backdrop);
   });
 });
