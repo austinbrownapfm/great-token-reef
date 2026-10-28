@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export interface JiraConfig {
   baseUrl: string;
   email: string;
@@ -33,6 +35,26 @@ function post(cfg: JiraConfig, body: Record<string, unknown>, fetchImpl: typeof 
   });
 }
 
+// Optional fields stay optional, so only a genuinely different response fails, and it fails with a
+// readable error instead of a TypeError or a NaN timestamp mid-sync (same approach as github.ts).
+const Search = z.object({
+  issues: z.array(z.object({
+    key: z.string(),
+    fields: z.object({
+      summary: z.string(),
+      statuscategorychangedate: z.string().refine((d) => !Number.isNaN(Date.parse(d)), 'not a date'),
+    }),
+  })).nullish(),
+  nextPageToken: z.string().nullish(),
+});
+
+function parse(value: unknown): z.infer<typeof Search> {
+  const result = Search.safeParse(value);
+  if (result.success) return result.data;
+  const issue = result.error.issues[0]!;
+  throw new Error(`[jira] unexpected response at ${issue.path.join('.') || '(root)'}: ${issue.message}`);
+}
+
 // JQL takes "yyyy-MM-dd HH:mm" in the Jira user's timezone; callers pass a lookback wide enough to cover it.
 const jqlDate = (iso: string): string => new Date(iso).toISOString().slice(0, 16).replace('T', ' ');
 
@@ -46,8 +68,7 @@ export async function fetchDoneTickets(cfg: JiraConfig, sinceIso: string, fetchI
       ...(nextPageToken ? { nextPageToken } : {}),
     }, fetchImpl);
     if (!res.ok) return fail(res);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const json: any = await res.json();
+    const json = parse(await res.json());
     for (const i of json.issues ?? []) {
       out.push({
         key: i.key,

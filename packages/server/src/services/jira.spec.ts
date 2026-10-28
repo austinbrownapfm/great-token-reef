@@ -37,6 +37,26 @@ describe('fetchDoneTickets', () => {
   });
 });
 
+describe('fetchDoneTickets response validation', () => {
+  const run = (body: unknown) => fetchDoneTickets(cfg, '2026-10-20T00:00:00Z', vi.fn().mockResolvedValue(json(body)) as unknown as typeof fetch);
+
+  it('treats a response without issues as empty', async () => {
+    await expect(run({})).resolves.toEqual([]);
+  });
+
+  it('names the offending field when an issue has no change date', async () => {
+    await expect(run({ issues: [{ key: 'A-1', fields: { summary: 'x' } }] })).rejects.toThrow('[jira] unexpected response at issues.0.fields.statuscategorychangedate');
+  });
+
+  it('rejects an unparseable change date instead of emitting NaN', async () => {
+    await expect(run({ issues: [{ key: 'A-1', fields: { summary: 'x', statuscategorychangedate: 'soon' } }] })).rejects.toThrow('not a date');
+  });
+
+  it('rejects a non-object body', async () => {
+    await expect(run(null)).rejects.toThrow('[jira] unexpected response at (root)');
+  });
+});
+
 describe('jiraMyself', () => {
   it('GETs /myself with basic auth', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(json({ accountId: '1' }));
